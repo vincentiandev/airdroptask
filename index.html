@@ -1,236 +1,302 @@
-<!DOCTYPE html>
+<!-- HolderW8r Tasks Multistage — Final fixed version -->
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>HolderW8r Tasks</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>HolderW8r — Unified App</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
   <style>
-    :root {
-      --bg: #000;
-      --card: #111;
-      --accent: #00ffcc;
-      --text: #fff;
-    }
-    * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui; }
-    body { background:var(--bg); color:var(--text); padding-bottom:80px; }
-    .screen { display:none; padding:0 20px; }
-    .active { display:block; }
-    header { padding:20px; text-align:center; background:var(--card); }
-    h2 { color:var(--accent); margin:12px 0; }
-    .btn {
-      background: linear-gradient(90deg, var(--accent), #00ccff);
-      color: #000; border: none; padding: 14px;
-      border-radius: 14px; font-weight: bold; width: 100%; margin: 12px 0; cursor: pointer;
-    }
-    input {
-      width: 100%; padding: 12px; margin: 10px 0;
-      background: #222; color: white; border: 1px solid #444; border-radius: 10px;
-    }
-    input:valid { border-color: #0f0; }
-    input:invalid { border-color: #f00; }
-
-    .wallet { background:linear-gradient(135deg, #0a2a2a, #0d1b1b); padding:20px; border-radius:16px; margin:16px 0; }
-    .balance { font-size:1.8rem; font-weight:bold; margin:10px 0; color:var(--accent); }
-
-    .mashaa {
-      background: rgba(0, 30, 30, 0.5);
-      padding: 12px;
-      border-radius: 10px;
-      margin: 12px 0;
-      border: 1px solid var(--accent);
-      font-style: italic;
-      color: #0ff;
-      font-size: 0.95rem;
-    }
-
-    nav {
-      position: fixed; bottom: 0; left: 0; right: 0;
-      display: flex; justify-content: space-around;
-      background: #000; padding: 12px 0;
-      border-top: 1px solid #333;
-    }
-    .nav-btn {
-      background: transparent; border: none; color: #00ffcc;
-      font-size: 0.8rem; font-weight: bold;
-      padding: 6px 4px; border-radius: 8px; cursor: pointer;
-    }
-    .nav-btn:hover { color: #fff; }
+    :root{--bg:#000;--card:#071014;--accent:#00ffd1;--muted:#6fe8d0}
+    body{background:linear-gradient(180deg,#000 0%,#031014 100%);color:#e6fff7;font-family:Inter,system-ui,Arial;margin:0;padding:0}
+    .wrap{max-width:1100px;margin:12px auto;padding:12px}
+    header{display:flex;justify-content:space-between;align-items:center;padding:12px 6px}
+    h1{color:var(--accent);margin:0}
+    .content{display:grid;grid-template-columns:1fr;gap:12px}
+    .card{background:var(--card);padding:12px;border-radius:12px;border:1px solid rgba(0,255,204,0.06)}
+    .btn{background:linear-gradient(90deg,#00ffd1,#00ccff);border:0;padding:10px;border-radius:10px;font-weight:700;cursor:pointer}
+    nav.bottom{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;background:rgba(0,0,0,0.8);padding:8px;border-radius:999px;display:flex;gap:8px}
+    .navbtn{background:transparent;border:0;color:var(--accent);padding:8px;font-weight:700;cursor:pointer}
+    input,select,textarea{width:100%;padding:8px;margin-top:8px;border-radius:8px;border:1px solid #123;background:#061016;color:#eafff2}
+    .muted{color:#9ee}
+    .small{font-size:0.9rem;color:#9ee}
+    .toast-wrap{position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:9999}
+    .toast{min-width:260px;background:#062b28;color:#000;padding:12px;border-radius:10px;margin-top:8px;box-shadow:0 8px 30px rgba(0,0,0,0.6);border-left:6px solid var(--accent);opacity:0;transform:translateY(-10px);animation:toast-in .35s forwards}
+    @keyframes toast-in{to{opacity:1;transform:none}}@keyframes toast-out{to{opacity:0;transform:translateY(-8px)}}
+    .thumb{max-width:180px;border-radius:8px;margin-top:8px;border:1px solid #222}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:8px;border-bottom:1px solid rgba(255,255,255,0.03);font-size:0.95rem}
+    @keyframes slideIn{from{transform:translateX(150px);opacity:0;}to{transform:translateX(0);opacity:1;}}
+    #taskPopup{animation:slideIn .35s ease-out}
+    #fabAdmin{position:fixed;bottom:90px;right:20px;width:60px;height:60px;border-radius:50%;background:var(--accent);border:0;box-shadow:0 6px 20px rgba(0,255,204,0.4);font-size:22px;cursor:pointer;z-index:9999}
   </style>
 </head>
 <body>
-  <!-- TASKS (FIRST SCREEN) -->
-  <div id="screen-tasks" class="screen active">
-    <header><h2>✅ Start Earning Now</h2></header>
-    <div class="mashaa">👋 Are you tasking! Tap any task below to register and earn instantly.</div>
-    
-    <button class="btn" onclick="window.open('https://www.safibets.com/?ref=1131694')">Register on Safibets → $5</button>
-    <button class="btn" onclick="window.open('https://static.olymptrade.com/lands/LPL92-01-02en/index.html?af_siteid=LPL92-01-02en&affiliate_id=2069834&lref=&lrefch=affiliate&pixel=1&subid1=&subid2=')">Register on Olymp Trade → $8</button>
-    <button class="btn" onclick="window.open('https://u3.shortink.io/register?utm_campaign=833050&utm_source=affiliate&utm_medium=sr&a=KlA04cjbIzPPbs&ac=milliondollar&code=WELCOME50')">Register on Pocket Option → $7</button>
-    <button class="btn" onclick="window.open('https://www.binance.com/activity/referral-entry/CPA?ref=CPA_00ZV7WCRL8', '_blank')">Register on Binance → $12</button>
-    <button class="btn" onclick="window.open('https://okx.com/join/97395294')">Register on OKX → $10</button>
-    
-    <div class="mashaa">💡 Complete tasks to build your balance. Tap **Levels** to unlock higher rewards!</div>
-  </div>
+  <div class="wrap">
+    <header>
+      <h1>HolderW8r</h1>
+      <div class="small">User: <strong id="uidTop">-</strong> &nbsp; | &nbsp; Balance: $<span id="topBal">0.00</span></div>
+    </header>
 
-  <!-- HOME (Wallet + Quick Actions) -->
-  <div id="screen-home" class="screen">
-    <header><h2>HOLDERW8R TASKS</h2></header>
-    <div class="wallet">
-      <div class="balance">$<span id="balance">0.00</span></div>
+    <div id="userApp" class="content">
+      <div id="screen-tasks" class="card">
+        <h2>✅ Tasks</h2>
+        <div class="muted">Complete tasks one-by-one. Upload proof for approval. While waiting you can proceed to the next task. Tasks expire after 5 minutes if not approved.</div>
+        <div id="taskList" style="margin-top:12px"></div>
+      </div>
+
+      <div id="screen-flow" class="card" style="display:none">
+        <h2 id="taskTitle">Task</h2>
+        <div id="taskFlow"></div>
+        <div style="margin-top:12px"><button class="btn" id="backUserFlow">Back to Tasks</button></div>
+      </div>
+
+      <div id="screen-home" class="card" style="display:none">
+        <h2>💰 Wallet</h2>
+        <div>User: <strong id="uidUser">-</strong></div>
+        <div>Balance: $<span id="balance">0.00</span></div>
+        <div>Referral Balance: $<span id="refBalance">0.00</span></div>
+        <div style="margin-top:12px" class="card">
+          <h4>Deposit</h4>
+          <input id="depAmount" type="number" placeholder="Amount ($)" min="2" value="10" />
+          <input id="depPhone" placeholder="Phone (e.g. +254712345678)" />
+          <button class="btn" id="doDeposit">Deposit</button>
+        </div>
+        <div style="margin-top:12px" class="card">
+          <h4>Withdraw</h4>
+          <input id="wdAmount" type="number" placeholder="Amount ($)" min="200" />
+          <input id="wdPhone" placeholder="Withdraw Phone (e.g. +254712345678)" />
+          <button class="btn" id="doWithdraw">Request Withdraw</button>
+        </div>
+      </div>
+
+      <div id="screen-referral" class="card" style="display:none">
+        <h2>📤 Invite</h2>
+        <div>Your join link:</div>
+        <div id="refLink" style="word-break:break-all;margin-top:8px"></div>
+        <div style="display:flex;gap:8px;margin-top:8px"><button class="btn" id="copyRefBtn">Copy Join Link</button><button class="btn" id="openRefBtn">Open Join Link</button></div>
+      </div>
+
+      <div id="screen-notifs" class="card" style="display:none">
+        <h2>🔔 Notifications</h2>
+        <div id="notifList"></div>
+      </div>
     </div>
-    <button class="btn" onclick="showScreen('deposit')">➕ Deposit to Upgrade</button>
-    <button class="btn" onclick="showScreen('cashout')">💸 Withdraw Funds</button>
-    <button class="btn" onclick="showScreen('airdrop')">🎁 Claim Airdrop</button>
-  </div>
 
-  <!-- LEVELS -->
-  <div id="screen-levels" class="screen">
-    <header><h2>🏆 Task Levels</h2></header>
-    <div class="mashaa">Tap any level to deposit and upgrade.</div>
-    <div class="level-card" style="background:#222; padding:14px; margin:10px 0; border-radius:12px; cursor:pointer;" onclick="showScreen('deposit')">
-      <strong>🥉 Bronze ($50)</strong><br>Base rewards
+    <div id="adminLogin" class="card" style="display:none"><h2>Admin Login</h2><input id="adminPass" placeholder="Password or code" type="password"/><button class="btn" id="adminLoginBtn">Login</button></div>
+
+    <div id="adminApp" style="display:none">
+      <div class="card">
+        <h2>Admin Panel</h2>
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <button class="btn" id="openAdminBtn">Open Admin Dashboard</button>
+          <button class="btn" id="logoutAdminBtn">Logout Admin View</button>
+        </div>
+      </div>
     </div>
-    <div class="level-card" style="background:#222; padding:14px; margin:10px 0; border-radius:12px; cursor:pointer;" onclick="showScreen('deposit')">
-      <strong>🥈 Silver ($100)</strong><br>+20% bonus
-    </div>
-    <div class="level-card" style="background:#222; padding:14px; margin:10px 0; border-radius:12px; cursor:pointer;" onclick="showScreen('deposit')">
-      <strong>🥇 Gold ($500)</strong><br>+50% bonus + exclusive tasks
-    </div>
-    <button class="btn" style="background:#444;" onclick="showScreen('tasks')">← Back to Tasks</button>
+
+    <div id="fullAdminPanel" style="display:none;margin-top:12px"></div>
   </div>
 
-  <!-- DEPOSIT -->
-  <div id="screen-deposit" class="screen">
-    <header><h2>➕ Deposit Funds</h2></header>
-    <div class="mashaa">📱 A prompt will appear on your phone to confirm.</div>
-    <input type="email" id="dep-email" placeholder="Email" required>
-    <input type="tel" id="dep-phone" placeholder="Phone (e.g. +254712345678)" required pattern="\+\d{10,15}">
-    <input type="number" id="dep-amount" placeholder="Amount ($50+)" min="50" value="50" required>
-    <button class="btn" onclick="processDeposit()">Confirm Deposit</button>
-    <button class="btn" style="background:#444;" onclick="showScreen('levels')">← Back</button>
-  </div>
-
-  <!-- CASH OUT -->
-  <div id="screen-cashout" class="screen">
-    <header><h2>💸 Withdraw to Mobile Money</h2></header>
-    <input type="tel" id="wd-phone" placeholder="Phone (e.g. +254712345678)" required pattern="\+\d{10,15}">
-    <div style="background:#222; padding:12px; border-radius:10px; margin:10px 0; color:#ffcc00;">
-      Balance: $<span id="wd-balance">0.00</span> | Min: $200
-    </div>
-    <button class="btn" onclick="processWithdraw()">Request Withdrawal</button>
-    <button class="btn" style="background:#444;" onclick="showScreen('home')">← Back</button>
-  </div>
-
-  <!-- AIRDROP -->
-  <div id="screen-airdrop" class="screen">
-    <header><h2>🎁 Claim Airdrop</h2></header>
-    <input type="email" id="air-email" placeholder="Email" required>
-    <input type="tel" id="air-phone" placeholder="Phone" required pattern="\+\d{10,15}">
-    <button class="btn" onclick="claimAirdrop()">Submit & Claim</button>
-    <button class="btn" style="background:#444;" onclick="showScreen('tasks')">← Back</button>
-  </div>
-
-  <!-- REFERRAL -->
-  <div id="screen-referral" class="screen">
-    <header><h2>📤 Invite & Earn</h2></header>
-    <div class="mashaa">Earn 20% (Tier 1), 8% (Tier 2), 2% (Tier 3)!</div>
-    <div id="ref-link" style="background:#0a2a2a; padding:12px; border-radius:10px; margin:15px 0; word-break:break-all; color:var(--accent);"></div>
-    <button class="btn" onclick="copyRef()">Copy Invite Link</button>
-    <button class="btn" style="background:#444;" onclick="showScreen('tasks')">← Back</button>
-  </div>
-
-  <!-- POPUP -->
-  <div id="popup" style="position:fixed; top:70px; right:20px; width:280px; background:rgba(10,40,40,0.95); border:2px solid var(--accent); padding:16px; border-radius:16px; color:white; z-index:9999; box-shadow:0 6px 25px rgba(0,255,204,0.5); display:none;"></div>
-
-  <!-- NAV -->
-  <nav>
-    <button class="nav-btn" onclick="showScreen('tasks')">✅ Tasks</button>
-    <button class="nav-btn" onclick="showScreen('home')">💰 Wallet</button>
-    <button class="nav-btn" onclick="showScreen('levels')">🏆 Levels</button>
-    <button class="nav-btn" onclick="showScreen('referral')">📤 Invite</button>
+  <nav class="bottom">
+    <button class="navbtn" id="navTasks">✅ Tasks</button>
+    <button class="navbtn" id="navWallet">💰 Wallet</button>
+    <button class="navbtn" id="navReferralBtn">📤 Invite</button>
+    <button class="navbtn" id="navNotifs">🔔 Notifications</button>
+    <button class="navbtn" id="navAdminBtn">🛠️ Admin</button>
   </nav>
 
-  <script>
-    let balance = 0;
-    const userId = 'user_' + Math.random().toString(36).substr(2, 9);
-    const inviteLink = `holderw8r.app?ref=${userId}`;
-    const POPUPS = ["🇰🇪 Brian cashed out $210!","🇳🇬 Tunde got $280!","🇩🇪 Lukas received $420!","🇨🇳 李伟 withdrew $220!","🇧🇷 Carlos got R$1,800!"];
-    let popupIndex = 0;
+  <div class="toast-wrap" id="toasts"></div>
 
-    document.getElementById('ref-link').textContent = inviteLink;
-    document.getElementById('wd-balance').textContent = '0.00';
+  <!-- Chart.js loaded dynamically when needed -->
 
-    function showScreen(id) {
-      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-      document.getElementById(`screen-${id}`).classList.add('active');
-      if (id === 'cashout') {
-        document.getElementById('wd-balance').textContent = balance.toFixed(2);
-      }
-    }
+<script>
+// Core storage keys
+const STORAGE_USERS = 'HW_USERS_V3';
+const STORAGE_CURRENT = 'HW_CURRENT_ID_V3';
+const STORAGE_SUBS = 'HW_SUBMISSIONS_V3';
+const STORAGE_TASKS = 'HW_TASKS_V3';
+const STORAGE_SUPER = 'HW_SUPERADMIN_ID_V3';
+const STORAGE_TELEWEB = 'HW_TELEGRAM_WEBHOOK';
 
-    function processDeposit() {
-      const email = document.getElementById('dep-email').value;
-      const phone = document.getElementById('dep-phone').value;
-      const amount = parseFloat(document.getElementById('dep-amount').value);
-      if (!email || !phone || !/^\+\d{10,15}$/.test(phone) || amount < 50) {
-        alert("❌ Enter valid email, phone (+254...), and amount ≥ $50");
-        return;
-      }
-      alert(`📱 Prompt sent to ${phone}:\n“Pay $${amount} to HOLDERW8R?”`);
-      setTimeout(() => {
-        balance += amount;
-        document.getElementById('balance').textContent = balance.toFixed(2);
-        document.getElementById('wd-balance').textContent = balance.toFixed(2);
-        alert(`✅ $${amount} added!`);
-        showScreen('home');
-      }, 2500);
-    }
+// Bootstrap data
+let USERS = JSON.parse(localStorage.getItem(STORAGE_USERS) || '{}');
+let TASKS = JSON.parse(localStorage.getItem(STORAGE_TASKS) || 'null');
+if(!TASKS){
+  TASKS = [
+    {title:'Register on Spurbets', reward:5, link:'https://spurbets.com?ref=1099110'},
+    {title:'Register on Safibets', reward:5, link:'https://www.safibets.com/?ref=1131694'},
+    {title:'Register on OlympTrade', reward:8, link:'https://static.olymptrade.com/lands/LPL92-01-02en/index.html'},
+    {title:'Register on Pocket Option', reward:7, link:'https://u3.shortink.io/register?utm_campaign=833050&utm_source=affiliate&utm_medium=sr&a=KlA04cjbIzPPbs&ac=milliondollar&code=WELCOME50'},
+    {title:'Register on Binance', reward:12, link:'https://www.binance.com/activity/referral-entry/CPA?ref=CPA_00ZV7WCRL8'},
+    {title:'Register on OKX', reward:10, link:'https://okx.com/join/97395294'},
+    {title:'Join @taskernbot', reward:6, link:'https://t.me/taskernbot'},
+    {title:'Open GOLD WebApp', reward:9, link:'https://t.me/taskernbot/GOLDwebapp'}
+  ];
+  localStorage.setItem(STORAGE_TASKS, JSON.stringify(TASKS));
+}
 
-    function processWithdraw() {
-      const phone = document.getElementById('wd-phone').value;
-      if (!/^\+\d{10,15}$/.test(phone)) {
-        alert("❌ Valid phone required (e.g. +254712345678)");
-        return;
-      }
-      if (balance < 200) {
-        alert(`❌ Min $200 to withdraw. Current: $${balance}`);
-        return;
-      }
-      alert(`📱 Withdrawal initiated to ${phone}.\nCheck your M-Pesa.`);
-      setTimeout(() => {
-        alert(`✅ $${balance} sent!`);
-        balance = 0;
-        document.getElementById('balance').textContent = '0.00';
-        document.getElementById('wd-balance').textContent = '0.00';
-        showScreen('tasks');
-      }, 3000);
-    }
+let CURRENT_ID = localStorage.getItem(STORAGE_CURRENT) || (function(){ const id = 'user_' + Math.random().toString(36).slice(2,9); localStorage.setItem(STORAGE_CURRENT, id); return id; })();
+if(!USERS[CURRENT_ID]) USERS[CURRENT_ID] = { id:CURRENT_ID, role:'user', balance:0, refBalance:0, completedTasks:[], referrals:[], referrer:null, notifications:[] };
+localStorage.setItem(STORAGE_USERS, JSON.stringify(USERS));
 
-    function claimAirdrop() {
-      const email = document.getElementById('air-email').value;
-      const phone = document.getElementById('air-phone').value;
-      if (!email || !phone || !/^\+\d{10,15}$/.test(phone)) {
-        alert("❌ Enter valid email and phone.");
-        return;
-      }
-      balance += 25;
-      document.getElementById('balance').textContent = balance.toFixed(2);
-      alert("✅ $25 claimed!");
-      showScreen('tasks');
-      showPopup();
-    }
+function loadSubs(){ return JSON.parse(localStorage.getItem(STORAGE_SUBS) || '[]'); }
+function saveSubs(a){ localStorage.setItem(STORAGE_SUBS, JSON.stringify(a)); }
+function saveUsers(){ localStorage.setItem(STORAGE_USERS, JSON.stringify(USERS)); }
 
-    function copyRef() {
-      navigator.clipboard?.writeText(inviteLink).then(() => alert("Link copied!"));
-    }
+// Toasts
+function showToast(txt){ const wrap = document.getElementById('toasts'); const el = document.createElement('div'); el.className = 'toast'; el.textContent = txt; wrap.appendChild(el); setTimeout(()=>{ el.style.animation='toast-out .35s forwards'; setTimeout(()=>el.remove(),350); },4000); }
 
-    function showPopup() {
-      document.getElementById('popup').textContent = POPUPS[popupIndex];
-      document.getElementById('popup').style.display = 'block';
-      setTimeout(() => document.getElementById('popup').style.display = 'none', 5000);
-      popupIndex = (popupIndex + 1) % POPUPS.length;
-    }
-    setInterval(showPopup, 4000);
-  </script>
+// Telegram stub
+async function sendTelegramNotification(sub){ const webhook = localStorage.getItem(STORAGE_TELEWEB); if(!webhook) return; try{ await fetch(webhook, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text: `New submission: ${sub.userId} task:${sub.taskIndex+1}` }) }); }catch(e){ console.warn('Telegram notify failed', e); } }
+
+// Duplicate protection
+function isDuplicateAccount(taskIndex, accountId){ if(!accountId) return false; const subs = loadSubs(); return subs.some(s => s.taskIndex === taskIndex && s.accountId && s.accountId.toLowerCase() === accountId.toLowerCase() && (s.status === 'pending' || s.status === 'approved')); }
+
+// Render task list for users
+function renderTaskList(){ const container = document.getElementById('taskList'); if(!container) return; container.innerHTML = ''; const subs = loadSubs(); for(let i=0;i<TASKS.length;i++){ const t = TASKS[i]; const latest = subs.filter(s=>s.userId===CURRENT_ID && s.taskIndex===i).sort((a,b)=>b.createdAt-a.createdAt)[0]; const prev = subs.filter(s=>s.userId===CURRENT_ID && s.taskIndex===i-1).sort((a,b)=>b.createdAt-a.createdAt)[0]; const unlocked = i===0 || (USERS[CURRENT_ID].completedTasks.includes(i-1)) || (prev && (prev.status==='pending' || prev.status==='approved')); const visible = !(latest && latest.status==='approved'); if(!visible) continue; const statusLabel = latest ? latest.status : ''; const minPay = Math.max(2, Math.floor(TASKS[i].reward * 0.5)); const maxPay = Math.min(5, Math.ceil(TASKS[i].reward)); const payRange = `$${minPay}-${maxPay}`; const card = document.createElement('div'); card.className='card'; card.innerHTML = `<div style="display:flex;justify-content:space-between"><div><strong>Task ${i+1}</strong><div class='small muted'>${t.title}</div><div class='small'>Pay: ${payRange}</div><div class='small'>${statusLabel?('Status: '+statusLabel):''}</div></div><div>${unlocked?'<button class="btn" data-open="'+i+'">Open</button>':'Locked'}</div></div>`; container.appendChild(card); }
+  document.querySelectorAll('button[data-open]').forEach(b=>b.addEventListener('click', ()=>{ openUserTask(parseInt(b.getAttribute('data-open'))); })); }
+
+let currentTaskIndex = null;
+function openUserTask(i){ currentTaskIndex = i; const t = TASKS[i]; document.getElementById('screen-tasks').style.display='none'; document.getElementById('screen-flow').style.display='block'; document.getElementById('screen-home').style.display='none'; document.getElementById('screen-referral').style.display='none'; document.getElementById('screen-notifs').style.display='none'; document.getElementById('taskTitle').textContent = 'Task '+(i+1)+' — '+t.title; const flow = document.getElementById('taskFlow'); const latest = loadSubs().filter(s=>s.userId===CURRENT_ID && s.taskIndex===i).sort((a,b)=>b.createdAt-a.createdAt)[0]; const prefill = latest? latest.accountId||'':''; const proofPreview = latest && latest.proof ? `<div class='muted'>Previous proof:</div><img src='${latest.proof}' class='thumb'/>` : ''; flow.innerHTML = `
+    <div class='muted' style='margin-top:8px'>Follow all instructions carefully. Create a NEW account for this task to be approved. Each account must be unique.</div>
+    <div class='muted' style='margin-top:8px'>Open this link:</div>
+    <button class='btn' id='openTaskLink'>Open Task</button>
+    <div class='muted' style='margin-top:8px'>Account ID</div>
+    <input id='accInput' placeholder='Account ID' value='${prefill}' />
+    <div class='muted' style='margin-top:8px'>Upload screenshot / proof (image)</div>
+    <input type='file' id='proofFile' accept='image/*' />
+    ${proofPreview}
+    <div style='margin-top:8px'><button class='btn' id='submitUserTask'>Submit</button></div>
+  `;
+  document.getElementById('openTaskLink').addEventListener('click', ()=>{ window.open(t.link, '_blank'); });
+  document.getElementById('submitUserTask').addEventListener('click', submitUserTask);
+}
+
+function submitUserTask(){ const acc = (document.getElementById('accInput')||{}).value.trim(); if(!acc){ alert('Enter account ID'); return; } if(isDuplicateAccount(currentTaskIndex, acc)){ alert('Duplicate account detected for this task. Please create a unique account.'); return; }
+  const fileEl = document.getElementById('proofFile'); const subs = loadSubs(); const push = (dataUrl)=>{ const sub = { id:'sub_'+Math.random().toString(36).slice(2,9), userId:CURRENT_ID, taskIndex:currentTaskIndex, accountId:acc, proof:dataUrl||null, status:'pending', createdAt:Date.now(), assignedTo:null }; subs.push(sub); saveSubs(subs); sendTelegramNotification(sub); showToast('Submitted for review'); renderTaskList(); renderTasksForUser(); try{ if(typeof renderSubsAdmin === 'function') renderSubsAdmin(); }catch(e){} setTimeout(()=>{ document.getElementById('screen-flow').style.display='none'; document.getElementById('screen-tasks').style.display='block'; },600); };
+  if(fileEl && fileEl.files && fileEl.files[0]){ const fr = new FileReader(); fr.onload = function(e){ push(e.target.result); }; fr.readAsDataURL(fileEl.files[0]); } else { push(null); } }
+
+function showUserScreen(id){ document.getElementById('screen-tasks').style.display = id==='tasks' ? 'block' : 'none'; document.getElementById('screen-home').style.display = id==='home' ? 'block' : 'none'; document.getElementById('screen-referral').style.display = id==='referral' ? 'block' : 'none'; document.getElementById('screen-notifs').style.display = id==='notifs' ? 'block' : 'none'; document.getElementById('screen-flow').style.display = 'none'; if(id==='tasks') renderTaskList(); if(id==='home') renderWallet(); if(id==='referral') renderReferral(); if(id==='notifs') renderNotifications(); }
+
+function renderWallet(){ document.getElementById('uidUser').textContent = CURRENT_ID; document.getElementById('balance').textContent = (USERS[CURRENT_ID].balance||0).toFixed(2); document.getElementById('refBalance').textContent = (USERS[CURRENT_ID].refBalance||0).toFixed(2); document.getElementById('topBal').textContent = (USERS[CURRENT_ID].balance||0).toFixed(2); }
+
+function renderReferral(){ const link = location.origin + location.pathname + '?join=' + CURRENT_ID; document.getElementById('refLink').innerHTML = `<a href='${link}' target='_blank'>${link}</a>`; }
+function copyRef(){ navigator.clipboard.writeText(location.origin + location.pathname + '?join=' + CURRENT_ID).then(()=>showToast('Join link copied')); }
+function openJoin(){ window.open(location.origin + location.pathname + '?join=' + CURRENT_ID, '_blank'); }
+
+function renderNotifications(){ const list = document.getElementById('notifList'); if(!list) return; const nots = (USERS[CURRENT_ID].notifications||[]).slice().reverse(); if(!nots.length){ list.innerHTML = '<div class="muted">No notifications</div>'; return; } list.innerHTML=''; nots.forEach(n=>{ const d = document.createElement('div'); d.className='card'; d.innerHTML = `<div><strong>${n.title}</strong><div class='small'>${new Date(n.createdAt).toLocaleString()}</div><div style='margin-top:8px'>${n.message}</div></div>`; list.appendChild(d); }); }
+
+function renderTasksForUser(){ document.getElementById('uidTop').textContent = CURRENT_ID; renderWallet(); renderTaskList(); }
+
+// ADMIN: panel and renderers
+function openFullAdminPanel(){ const allowed = (USERS[CURRENT_ID] && (USERS[CURRENT_ID].role==='admin' || USERS[CURRENT_ID].role==='moderator' || USERS[CURRENT_ID].role==='superadmin')) || (localStorage.getItem(STORAGE_SUPER)===CURRENT_ID); if(!allowed){ showToast('No admin permission — please login'); return; }
+  const panel = document.getElementById('fullAdminPanel'); panel.style.display='block'; panel.innerHTML = `
+    <div class='card'>
+      <h3>Admin Dashboard</h3>
+      <div style='display:flex;gap:8px;flex-wrap:wrap'>
+        <button class='btn' id='admOverview'>Overview</button>
+        <button class='btn' id='admSubs'>Submissions</button>
+        <button class='btn' id='admModer'>Moderator Review</button>
+        <button class='btn' id='admTasks'>Tasks</button>
+        <button class='btn' id='admRoles'>Roles</button>
+        <button class='btn' id='admAnalytics'>Analytics</button>
+        <button class='btn' id='admSettings'>Settings</button>
+      </div>
+    </div>
+    <div id='admContent'></div>
+  `;
+  renderAdminOverview(); renderAdminSubmissions(); renderModeratorPanel(); renderAdminTasks(); renderAdminUsers(); renderAdminAnalytics(); renderAdminSettings();
+}
+
+function renderAdminOverview(){ const el=document.getElementById('admContent'); document.getElementById('admOverview')?.addEventListener('click', ()=>{ el.innerHTML = `<div class='card'><h4>Overview</h4><div>Users: ${Object.keys(USERS).length}</div><div>Submissions: ${loadSubs().length}</div></div>`; }); }
+
+function renderAdminSubmissions(){ const el=document.getElementById('admContent'); document.getElementById('admSubs')?.addEventListener('click', ()=>{ const subs = loadSubs().slice().reverse(); let html = `<div class='card'><h4>Submissions</h4>` + (subs.length? '':'<div class="muted">No submissions</div>'); subs.forEach(s=>{ html += `<div class='card'><strong>${s.userId}</strong> - Task ${s.taskIndex+1} <div class='small'>${s.accountId||'-'}</div>${s.proof?`<img src='${s.proof}' class='thumb'/>`:''}<div class='small'>Status: ${s.status} ${s.assignedTo?(' | assigned: '+s.assignedTo):''}</div><div style='margin-top:8px'>${s.status!=='approved'?`<button class='btn' data-a='${s.id}'>Approve</button> <button class='btn' data-r='${s.id}'>Reject</button> <button class='btn' data-assign='${s.id}'>Assign</button>`:''}</div></div>`; }); html += '</div>'; el.innerHTML = html;
+    el.querySelectorAll('button[data-a]').forEach(b=>b.addEventListener('click', ()=>{ adminApprove(b.getAttribute('data-a')); renderAdminSubmissions(); }));
+    el.querySelectorAll('button[data-r]').forEach(b=>b.addEventListener('click', ()=>{ adminReject(b.getAttribute('data-r')); renderAdminSubmissions(); }));
+    el.querySelectorAll('button[data-assign]').forEach(b=>b.addEventListener('click', ()=>{ const id=b.getAttribute('data-assign'); const mod = prompt('Assign to moderator (user id)'); if(mod){ assignSubmissionTo(id, mod); renderAdminSubmissions(); } }));
+  }); }
+
+function assignSubmissionTo(subId, moderatorId){ const subs = loadSubs(); const s = subs.find(x=>x.id===subId); if(!s) return; s.assignedTo = moderatorId; saveSubs(subs); showToast('Assigned'); if(USERS[moderatorId]){ USERS[moderatorId].notifications = USERS[moderatorId].notifications||[]; USERS[moderatorId].notifications.push({ id:'n_'+Date.now(), title:'Assigned review', message:'You were assigned submission '+subId, createdAt:Date.now(), read:false }); saveUsers(); } }
+
+function renderModeratorPanel(){ const el=document.getElementById('admContent'); document.getElementById('admModer')?.addEventListener('click', ()=>{ const subs = loadSubs().filter(s=> s.status==='pending' && (!s.assignedTo || s.assignedTo===CURRENT_ID)).slice().reverse(); let html = `<div class='card'><h4>Moderator Review</h4>` + (subs.length? '':'<div class="muted">No submissions to review (for you)</div>'); subs.forEach(s=>{ html += `<div class='card'><strong>${s.userId}</strong> - Task ${s.taskIndex+1}<div class='small'>${s.accountId||'-'}</div>${s.proof?`<img src='${s.proof}' class='thumb'/>`:''}<div class='small'>Status: ${s.status}</div><div style='margin-top:8px'><button class='btn' data-ma='${s.id}'>Approve</button> <button class='btn' data-mr='${s.id}'>Reject</button></div></div>`; }); html += '</div>'; el.innerHTML = html;
+    el.querySelectorAll('button[data-ma]').forEach(b=>b.addEventListener('click', ()=>{ adminApprove(b.getAttribute('data-ma')); renderModeratorPanel(); renderAdminSubmissions(); }));
+    el.querySelectorAll('button[data-mr]').forEach(b=>b.addEventListener('click', ()=>{ adminReject(b.getAttribute('data-mr')); renderModeratorPanel(); renderAdminSubmissions(); }));
+  }); }
+
+function renderAdminTasks(){ const el=document.getElementById('admContent'); document.getElementById('admTasks')?.addEventListener('click', ()=>{ let html = `<div class='card'><h4>Tasks</h4>`; TASKS.forEach((t,i)=>{ html += `<div class='card'><strong>${t.title}</strong> <div class='small'>$${t.reward} — ${t.link}</div><div style='margin-top:8px'><button class='btn' data-del='${i}'>Delete</button></div></div>`; }); html += `<div class='card'><h4>Add Task</h4><input id='newTaskTitle' placeholder='Title'/><input id='newTaskReward' type='number' placeholder='Reward'/><input id='newTaskLink' placeholder='Link'/><button class='btn' id='addTaskBtn'>Add Task</button></div>`; html += '</div>'; el.innerHTML = html;
+    el.querySelectorAll('button[data-del]').forEach(b=>b.addEventListener('click', ()=>{ TASKS.splice(parseInt(b.getAttribute('data-del')),1); localStorage.setItem(STORAGE_TASKS,JSON.stringify(TASKS)); renderAdminTasks(); showToast('Task removed'); }));
+    const addBtn = document.getElementById('addTaskBtn'); if(addBtn) addBtn.addEventListener('click', ()=>{ const title = document.getElementById('newTaskTitle').value.trim(); const reward = parseFloat(document.getElementById('newTaskReward').value) || 0; const link = document.getElementById('newTaskLink').value.trim(); if(!title || !link || !reward){ showToast('Fill all fields'); return; } TASKS.push({ title, reward, link }); localStorage.setItem(STORAGE_TASKS, JSON.stringify(TASKS)); showToast('Task added'); renderAdminTasks(); });
+  }); }
+
+function renderAdminUsers(){ const el=document.getElementById('admContent'); document.getElementById('admRoles')?.addEventListener('click', ()=>{ let html = `<div class='card'><h4>Users & Roles</h4>`; Object.keys(USERS).forEach(uid=>{ const u = USERS[uid]; html += `<div class='card'><strong>${uid}</strong><div class='small'>role: ${u.role||'user'}</div><div style='margin-top:8px'><select data-role='${uid}'><option value='user' ${u.role==='user'?'selected':''}>User</option><option value='moderator' ${u.role==='moderator'?'selected':''}>Moderator</option><option value='admin' ${u.role==='admin'?'selected':''}>Admin</option><option value='superadmin' ${u.role==='superadmin'?'selected':''}>SuperAdmin</option></select></div></div>`; }); html += '</div>'; el.innerHTML = html; el.querySelectorAll('select[data-role]').forEach(s=>s.addEventListener('change', ()=>{ const uid = s.getAttribute('data-role'); USERS[uid].role = s.value; saveUsers(); showToast('Role updated'); renderAdminUsers(); })); }); }
+
+function renderAdminAnalytics(){ const el=document.getElementById('admContent'); document.getElementById('admAnalytics')?.addEventListener('click', ()=>{ const subs = loadSubs(); const total = subs.length; const pending = subs.filter(s=>s.status==='pending').length; const approved = subs.filter(s=>s.status==='approved').length; const rejected = subs.filter(s=>s.status==='rejected').length; const totalReferrals = Object.values(USERS).reduce((acc,u)=>acc + (u.referrals?u.referrals.length:0),0); const totalRefEarnings = Object.values(USERS).reduce((acc,u)=>acc + (u.refBalance||0),0); let html = `<div class='card'><h4>Analytics</h4><div>Total submissions: ${total}</div><div>Pending: ${pending}</div><div>Approved: ${approved}</div><div>Rejected: ${rejected}</div><div style='margin-top:8px'>Total referrals: ${totalReferrals}</div><div>Referral payouts (total): $${totalRefEarnings.toFixed(2)}</div><div style='margin-top:12px'><button class='btn' id='exportCsv'>Export submissions CSV</button></div><canvas id='analyticsChart' width='800' height='240' style='margin-top:12px'></canvas></div>`; el.innerHTML = html; const ctx = document.getElementById('analyticsChart').getContext('2d'); const data = { labels:['Pending','Approved','Rejected'], datasets:[{ label:'Submissions', data:[pending,approved,rejected] }] };
+    (function loadChart(cb){ if(window.Chart) return cb(); const s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/chart.js'; s.onload = cb; document.head.appendChild(s); })(()=>{ try{ new Chart(ctx, { type: 'pie', data: data, options: { responsive:true } }); }catch(e){ console.warn('Chart failed', e); } });
+    document.getElementById('exportCsv').addEventListener('click', ()=>{ const rows = [['id','userId','taskIndex','accountId','status','createdAt']]; loadSubs().forEach(s=> rows.push([s.id, s.userId, s.taskIndex, s.accountId||'', s.status, new Date(s.createdAt).toISOString()])); const csv = rows.map(r=> r.map(v=> '"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n'); const blob = new Blob([csv], { type: 'text/csv' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'submissions.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url); }); }); }
+
+function renderAdminSettings(){ const el=document.getElementById('admContent'); document.getElementById('admSettings')?.addEventListener('click', ()=>{ const saved = localStorage.getItem(STORAGE_TELEWEB)||''; el.innerHTML = `<div class='card'><h4>Settings</h4><div class='small'>Telegram webhook (POST JSON):</div><input id='teleWebhook' placeholder='https://...' value='${saved}'/><div style='margin-top:8px'><button class='btn' id='saveWeb'>Save</button> <button class='btn' id='clearWeb'>Clear</button></div></div>`; document.getElementById('saveWeb').addEventListener('click', ()=>{ const v = document.getElementById('teleWebhook').value.trim(); localStorage.setItem(STORAGE_TELEWEB, v); showToast('Saved'); }); document.getElementById('clearWeb').addEventListener('click', ()=>{ localStorage.removeItem(STORAGE_TELEWEB); document.getElementById('teleWebhook').value=''; showToast('Cleared'); }); }); }
+
+// Admin actions
+function canReview(){ const superId = localStorage.getItem(STORAGE_SUPER); if(superId && CURRENT_ID===superId) return true; const role = (USERS[CURRENT_ID] && USERS[CURRENT_ID].role) || 'user'; return (role==='moderator' || role==='admin' || role==='superadmin'); }
+function adminApprove(id){ if(!canReview()) return showToast('No permission'); const subs = loadSubs(); const s = subs.find(x=>x.id===id); if(!s) return; s.status = 'approved'; USERS[s.userId] = USERS[s.userId] || { id:s.userId, role:'user', balance:0, refBalance:0, completedTasks:[], referrals:[], referrer:null, notifications:[] }; const u = USERS[s.userId]; if(!u.completedTasks.includes(s.taskIndex)) u.completedTasks.push(s.taskIndex); const reward = (TASKS[s.taskIndex] && TASKS[s.taskIndex].reward) ? TASKS[s.taskIndex].reward : 0; u.balance = (u.balance||0) + reward; u.notifications = u.notifications||[]; u.notifications.push({ id:'n_'+Date.now(), title:'Approved', message:'Task '+(s.taskIndex+1)+' approved. Reward added.', createdAt:Date.now(), read:false }); saveSubs(subs); saveUsers(); try{ distributeReferralRewards(s.userId, reward); }catch(e){ console.warn('Referral distribution failed', e); } showToast('Approved'); }
+function adminReject(id){ if(!canReview()) return showToast('No permission'); const subs = loadSubs(); const s = subs.find(x=>x.id===id); if(!s) return; s.status = 'rejected'; USERS[s.userId] = USERS[s.userId] || { id:s.userId, role:'user', balance:0, refBalance:0, completedTasks:[], referrals:[], referrer:null, notifications:[] }; USERS[s.userId].notifications = USERS[s.userId].notifications||[]; USERS[s.userId].notifications.push({ id:'n_'+Date.now(), title:'Rejected', message:'Your submission was rejected.', createdAt:Date.now(), read:false }); saveSubs(subs); saveUsers(); showToast('Rejected'); }
+
+function assignSubmissionToLocal(subId, moderatorId){ assignSubmissionTo(subId, moderatorId); }
+
+// REFERRAL: handle ?join=userid param and distribution
+function handleJoinParam(){ try{ const params = new URLSearchParams(location.search); const join = params.get('join'); if(!join) return; if(join === CURRENT_ID) return; if(USERS[CURRENT_ID] && USERS[CURRENT_ID].referrer) return; if(!USERS[join]){ USERS[join] = { id:join, role:'user', balance:0, refBalance:0, completedTasks:[], referrals:[], referrer:null, notifications:[] }; }
+  USERS[CURRENT_ID].referrer = join; USERS[join].referrals = USERS[join].referrals || []; if(!USERS[join].referrals.includes(CURRENT_ID)) USERS[join].referrals.push(CURRENT_ID); saveUsers(); showToast('Joined via referral'); }catch(e){ console.warn('join param failed', e); } }
+
+function distributeReferralRewards(userId, amount){ try{ const tierPerc = [0.20,0.08,0.02]; let ref = USERS[userId] && USERS[userId].referrer; for(let i=0;i<tierPerc.length && ref;i++){ if(!USERS[ref]){ ref = USERS[ref] && USERS[ref].referrer; continue; } const bonus = +(amount * tierPerc[i]).toFixed(2); USERS[ref].refBalance = (USERS[ref].refBalance||0) + bonus; USERS[ref].notifications = USERS[ref].notifications||[]; USERS[ref].notifications.push({ id:'n_'+Date.now()+'_'+i, title:'Referral bonus', message:'You earned $'+bonus+' from referral level '+(i+1), createdAt:Date.now(), read:false }); saveUsers(); ref = USERS[ref].referrer; } }catch(e){ console.warn('distribute error', e); } }
+
+// Expiry worker
+function expiryCheck(){ const subs = loadSubs(); let changed = false; const now = Date.now(); subs.forEach(s=>{ if(s.status==='pending' && s.createdAt + 5*60*1000 < now){ s.status='expired'; USERS[s.userId] = USERS[s.userId]||{ id:s.userId, role:'user', balance:0, refBalance:0, completedTasks:[], referrals:[], referrer:null, notifications:[] }; USERS[s.userId].notifications = USERS[s.userId].notifications||[]; USERS[s.userId].notifications.push({ id:'n_'+Date.now(), title:'Expired', message:'Submission expired. Please redo.', createdAt:Date.now(), read:false }); changed = true; } }); if(changed){ saveSubs(subs); saveUsers(); } }
+setInterval(expiryCheck, 30000);
+
+// Admin login codes
+const ROLE_CODES = { superadmin:'SUPER999', admin:'ADMIN777', moderator:'MOD555' };
+function attemptAdminLogin(){ const p = (document.getElementById('adminPass')||{}).value.trim(); let assigned = null; Object.keys(ROLE_CODES).forEach(r=>{ if(p === ROLE_CODES[r]) assigned = r; }); if(!assigned){ showToast('Wrong password'); return; } USERS[CURRENT_ID].role = assigned; saveUsers(); showToast('Logged in as '+assigned); document.getElementById('adminLogin').style.display='none'; document.getElementById('adminApp').style.display='block'; openFullAdminPanel(); }
+
+// Init wiring
+function init(){ // handle join param first
+  handleJoinParam();
+  document.getElementById('navTasks').addEventListener('click', ()=>showUserScreen('tasks'));
+  document.getElementById('navWallet').addEventListener('click', ()=>showUserScreen('home'));
+  document.getElementById('navReferralBtn').addEventListener('click', ()=>showUserScreen('referral'));
+  document.getElementById('navNotifs').addEventListener('click', ()=>showUserScreen('notifs'));
+  document.getElementById('backUserFlow').addEventListener('click', ()=>{ showUserScreen('tasks'); });
+  document.getElementById('copyRefBtn').addEventListener('click', copyRef);
+  document.getElementById('openRefBtn').addEventListener('click', openJoin);
+  document.getElementById('adminLoginBtn').addEventListener('click', attemptAdminLogin);
+
+  document.getElementById('openAdminBtn')?.addEventListener('click', ()=>{ openFullAdminPanel(); });
+  document.getElementById('logoutAdminBtn')?.addEventListener('click', ()=>{ document.getElementById('adminApp').style.display='none'; document.getElementById('fullAdminPanel').style.display='none'; });
+
+  // FAB and bottom admin nav show login prompt
+  const fab = document.getElementById('fabAdmin'); if(fab){ fab.addEventListener('click', ()=>{ document.getElementById('adminLogin').style.display='block'; document.getElementById('adminApp').style.display='none'; }); }
+  const navAdmin = document.getElementById('navAdminBtn'); if(navAdmin){ navAdmin.addEventListener('click', ()=>{ document.getElementById('adminLogin').style.display='block'; document.getElementById('adminApp').style.display='none'; }); }
+
+  // deposit/withdraw handlers
+  document.getElementById('doDeposit').addEventListener('click', ()=>{ const amt = parseFloat(document.getElementById('depAmount').value)||0; const phone = (document.getElementById('depPhone')||{}).value.trim(); if(amt < 2 || !phone){ showToast('Enter valid deposit'); return; } USERS[CURRENT_ID].balance = (USERS[CURRENT_ID].balance||0) + amt; saveUsers(); showToast('Deposit added'); renderWallet(); });
+  document.getElementById('doWithdraw').addEventListener('click', ()=>{ const amt = parseFloat(document.getElementById('wdAmount').value)||0; const phone = (document.getElementById('wdPhone')||{}).value.trim(); if(amt < 200){ showToast('Min $200 to withdraw'); return; } if((USERS[CURRENT_ID].balance||0) < amt){ showToast('Insufficient balance'); return; } USERS[CURRENT_ID].balance -= amt; saveUsers(); showToast('Withdraw requested'); renderWallet(); });
+
+  // initial render
+  renderTasksForUser(); renderTaskList(); renderWallet(); renderReferral(); renderNotifications();
+}
+
+// Safe proxy for older calls
+function renderSubsAdmin(){ try{ renderAdminSubmissions(); }catch(e){} }
+
+init();
+</script>
+
+<button id="fabAdmin">⚙️</button>
+<div id="taskPopup" style="position:fixed;right:20px;bottom:160px;background:#062b28;color:#eafff2;padding:14px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,0.5);border-left:6px solid var(--accent);min-width:260px;display:none;z-index:9998;"></div>
+<script>
+let popupIndex = 0;
+function showTaskPopup(){ const p = document.getElementById('taskPopup'); if(!p) return; if(!Array.isArray(TASKS) || TASKS.length===0) return; const t = TASKS[popupIndex % TASKS.length]; p.innerHTML = `<strong>${t.title}</strong><br>$${t.reward} reward<br><button class='btn' style='margin-top:6px' onclick='openUserTask(${popupIndex % TASKS.length})'>Open Task</button>`; p.style.display='block'; setTimeout(()=>{ p.style.display='none'; },10000); popupIndex++; }
+setInterval(showTaskPopup,15000);
+</script>
 </body>
 </html>
