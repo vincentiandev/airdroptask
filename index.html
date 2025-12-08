@@ -50,7 +50,7 @@
 
     /* Task card style matching provided image */
     .task-card{
-      background: linear-gradient(180deg, rgba(0,0,0,0.18), rgba(255,255,255,0.02));
+      background: linear-gradient(180deg, rgba(0,0,0,0.06), rgba(255,255,255,0.02));
       border-radius:12px;
       padding:14px;
       margin-top:12px;
@@ -59,9 +59,9 @@
       gap:12px;
       color:var(--text);
     }
-    .task-avatar{width:64px;height:64px;border-radius:12px;background:rgba(0,0,0,0.35)}
+    .task-avatar{width:64px;height:64px;border-radius:12px;background:rgba(0,0,0,0.08)}
     .task-lines{flex:1}
-    .task-line{height:12px;border-radius:8px;background:rgba(0,0,0,0.25);margin-bottom:8px}
+    .task-line{height:12px;border-radius:8px;background:rgba(0,0,0,0.06);margin-bottom:8px}
     [data-theme="dark"] .task-card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));}
     [data-theme="dark"] .task-line{background:rgba(255,255,255,0.04)}
 
@@ -74,6 +74,9 @@
     /* admin specific */
     .admin-header{background:linear-gradient(90deg,var(--accent),var(--accent-2));padding:12px;border-radius:10px;color:#001;margin-bottom:12px}
     .admin-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+
+    /* Congratulations popup */
+    .congrats{position:fixed;left:50%;top:18%;transform:translateX(-50%);background:linear-gradient(90deg,var(--accent-2),var(--accent));color:#001;padding:18px;border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,0.3);z-index:20001;min-width:320px;text-align:center}
 
     @media (max-width:700px){ .task-avatar{width:48px;height:48px} .task-line{height:10px} .wrap{padding:10px} }
   </style>
@@ -96,6 +99,7 @@
         <h2>✅ Tasks</h2>
         <div class="muted-block">Complete tasks one-by-one. Upload proof for approval. While waiting you can proceed to the next task. Tasks expire after 5 minutes if not approved.</div>
         <div id="taskList" style="margin-top:12px"></div>
+        <div id="taskPreview" style="margin-top:12px;color:var(--muted)"></div>
       </div>
 
       <div id="screen-flow" class="card" style="display:none">
@@ -154,6 +158,27 @@
   <div class="toast-wrap" id="toasts"></div>
   <div id="taskPopup" style="display:none"></div>
 
+<!-- Firebase v8 SDK (drop-in, compatible with the existing script) -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script>
+  // EXACT Firebase config (as provided)
+  const firebaseConfig = {
+    apiKey: "AIzaSyBJNP69njrGB1RiEttTq_e8I_3rQmA04AI",
+    authDomain: "paidtasking.firebaseapp.com",
+    projectId: "paidtasking",
+    storageBucket: "paidtasking.firebasestorage.app",
+    messagingSenderId: "592969991844",
+    appId: "1:592969991844:web:b05bdf0b3c88b7ad150831",
+    measurementId: "G-8JXBKCRVLT"
+  };
+  try{ firebase.initializeApp(firebaseConfig); console.log('%cFirebase init ok','color:#0a0'); }catch(e){ console.warn('Firebase init failed', e); }
+  const db = (window.firebase && firebase.firestore) ? firebase.firestore() : null;
+  const auth = (window.firebase && firebase.auth) ? firebase.auth() : null;
+  if(auth && auth.signInAnonymously) auth.signInAnonymously().catch(e=>console.warn('Anon sign-in failed',e));
+</script>
+
 <script>
 /* -------------------------
    Storage keys + bootstrap
@@ -179,11 +204,10 @@ if(!Array.isArray(TASKS) || TASKS.length===0){
     { title:'Register on Binance', reward:12, link:'https://www.binance.com/activity/referral-entry/CPA?ref=CPA_00ZV7WCRL8' },
     { title:'Register on OKX', reward:10, link:'https://okx.com/join/97395294' },
     { title:'Join @taskernbot', reward:6, link:'https://t.me/taskernbot' },
-    { title:'Open GOLD WebApp', reward:9, link:'https://t.me/taskernbot/GOLDwebapp' }
+    { title:'Open GOLD WebApp', reward:9, link:'https://t.me/taskernbot/GOLDwebapp' },
+    { title:'Watch video on YouTube', reward:3, link:'https://youtu.be/DJv848NyzSw' },
+    { title:'Subscribe to Holderw8r channel', reward:4, link:'https://www.youtube.com/@Holderw8r' }
   ];
-  // Add YouTube watch & subscribe tasks (requested)
-  TASKS.push({ title:'Watch video on YouTube', reward:3, link:'https://youtu.be/DJv848NyzSw', note:'Watch full video and attach proof' });
-  TASKS.push({ title:'Subscribe to Holderw8r channel', reward:4, link:'https://www.youtube.com/@Holderw8r', note:'Subscribe and attach proof' });
   saveJSON(STORAGE_TASKS, TASKS);
 }
 
@@ -196,13 +220,132 @@ function saveSubs(a){ saveJSON(STORAGE_SUBS, a); }
 function saveUsers(){ saveJSON(STORAGE_USERS, USERS); }
 
 /* -------------------------
+   Cloud sync helpers (Firestore)
+   - Best-effort: sync local -> cloud and cloud -> local on init
+   - Writes happen alongside local writes so UI remains responsive
+   ------------------------- */
+function cloudSaveUser(user){
+  try{ if(!db) return Promise.resolve(); return db.collection('users').doc(user.id).set(user, { merge: true }); }catch(e){ console.warn('cloudSaveUser failed', e); return Promise.resolve(); }
+}
+function cloudSaveTask(task){ try{ if(!db) return Promise.resolve(); return db.collection('tasks').add(task); }catch(e){ console.warn('cloudSaveTask failed', e); return Promise.resolve(); } }
+function cloudSaveSubmission(sub){ try{ if(!db) return Promise.resolve(); return db.collection('submissions').doc(sub.id).set(sub, { merge: true }); }catch(e){ console.warn('cloudSaveSubmission failed', e); return Promise.resolve(); } }
+function cloudUpdateSubmission(id, data){ try{ if(!db) return Promise.resolve(); return db.collection('submissions').doc(id).update(data); }catch(e){ console.warn('cloudUpdateSubmission failed', e); return Promise.resolve(); } }
+
+function cloudLoadAll(){
+  if(!db) return;
+  try{
+    db.collection('users').get().then(q=>{
+      q.forEach(doc=>{ try{ const d = doc.data()||{}; d.id = doc.id; USERS[d.id] = Object.assign(USERS[d.id]||{}, d); }catch(e){console.warn('user doc merge failed',e);} });
+      saveUsers(); renderTasksForUser();
+    }).catch((e)=>{ console.warn('cloud users fetch failed', e); });
+    db.collection('tasks').get().then(q=>{
+      const cloudTasks = [];
+      q.forEach(doc=>{ try{ const d = doc.data()||{}; d.id = doc.id; cloudTasks.push(d); }catch(e){} });
+      if(cloudTasks.length) { TASKS = cloudTasks; saveJSON(STORAGE_TASKS, TASKS); renderTaskList(); }
+    }).catch((e)=>{ console.warn('cloud tasks fetch failed', e); });
+    db.collection('submissions').get().then(q=>{
+      const subs = loadSubs();
+      q.forEach(doc=>{ try{ const d = doc.data()||{}; d.id = doc.id; if(!subs.some(s=>s.id===d.id)) subs.push(d); }catch(e){} });
+      if(subs.length) saveSubs(subs);
+    }).catch((e)=>{ console.warn('cloud submissions fetch failed', e); });
+  }catch(e){ console.warn('cloudLoadAll failed', e); }
+}
+
+// real-time sync for submissions and referrals (admin benefit)
+let submissionsUnsub = null;
+let usersUnsub = null;
+let realtimePollInterval = null;
+function cloudRealtimeListeners(){
+  if(!db || typeof db.collection !== 'function') return;
+  try{
+    if(submissionsUnsub) { try{submissionsUnsub(); }catch(e){} submissionsUnsub = null; }
+    if(usersUnsub) { try{usersUnsub(); }catch(e){} usersUnsub = null; }
+
+    submissionsUnsub = db.collection('submissions').onSnapshot((sn)=>{
+      try{
+        const subs = loadSubs(); let changed=false;
+        const changes = (typeof sn.docChanges === 'function') ? sn.docChanges() : (sn.docChanges || []);
+        changes.forEach(ch=>{
+          try{
+            if(!ch || !ch.doc) return;
+            const raw = (typeof ch.doc.data === 'function') ? ch.doc.data() : ch.doc.data;
+            if(!raw) return;
+            const d = Object.assign({}, raw); d.id = ch.doc.id;
+            const idx = subs.findIndex(s=>s.id===d.id);
+            const typ = ch.type || (ch.doc && ch.doc.metadata && ch.doc.metadata.fromCache ? 'modified' : 'added');
+            if(typ==='added'){ if(idx===-1){ subs.push(d); changed=true; } }
+            else if(typ==='modified'){ if(idx>-1){ subs[idx]=d; changed=true; } }
+            else if(typ==='removed'){ if(idx>-1){ subs.splice(idx,1); changed=true; } }
+          }catch(e){ console.warn('error processing submissions change', e); }
+        });
+        if(changed){ saveSubs(subs); try{ refreshAdminPanels(); }catch(e){} }
+      }catch(inner){ console.warn('Error processing submissions snapshot', inner); }
+    }, err=>{
+      console.warn('Submissions onSnapshot error (handled)', err && (err.message || err));
+      if(!realtimePollInterval){ realtimePollInterval = setInterval(()=>{ cloudLoadAll(); }, 30000); console.warn('Realtime snapshot failed — started polling cloud every 30s as fallback'); }
+    });
+
+    usersUnsub = db.collection('users').onSnapshot((sn)=>{
+      try{
+        let changed=false;
+        const changes = (typeof sn.docChanges === 'function') ? sn.docChanges() : (sn.docChanges || []);
+        changes.forEach(ch=>{
+          try{
+            if(!ch || !ch.doc) return;
+            const raw = (typeof ch.doc.data === 'function') ? ch.doc.data() : ch.doc.data;
+            if(!raw) return;
+            const d = Object.assign({}, raw); d.id = ch.doc.id;
+            USERS[d.id] = Object.assign(USERS[d.id]||{}, d);
+            changed = true;
+          }catch(e){ console.warn('error processing user change', e); }
+        });
+        if(changed){ saveUsers(); }
+      }catch(inner){ console.warn('Error processing users snapshot', inner); }
+    }, err=>{
+      console.warn('Users onSnapshot error (handled)', err && (err.message || err));
+      if(!realtimePollInterval){ realtimePollInterval = setInterval(()=>{ cloudLoadAll(); }, 30000); console.warn('Users snapshot failed — fallback polling started'); }
+    });
+
+  }catch(e){ console.warn('realtime listeners failed', e); }
+}
+
+/* -------------------------
+   Safe clipboard helper (fixes NotAllowedError in restricted contexts)
+   ------------------------- */
+function fallbackCopy(text, resolve, reject){
+  try{
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'absolute';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    if(ok) resolve(); else reject(new Error('execCommand failed'));
+  }catch(e){ reject(e); }
+}
+function safeCopy(text){
+  return new Promise((resolve,reject)=>{
+    try{
+      if(navigator.clipboard && typeof navigator.clipboard.writeText === 'function'){
+        navigator.clipboard.writeText(text).then(resolve).catch(()=>fallbackCopy(text, resolve, reject));
+      } else {
+        fallbackCopy(text, resolve, reject);
+      }
+    }catch(e){ fallbackCopy(text, resolve, reject); }
+  });
+}
+
+/* -------------------------
    Theme handling
    ------------------------- */
 function applyTheme(theme){
   if(theme==='dark') document.documentElement.setAttribute('data-theme','dark');
   else document.documentElement.removeAttribute('data-theme');
   localStorage.setItem(STORAGE_THEME, theme);
-  document.getElementById('themeToggle').textContent = (theme==='dark') ? 'Light' : 'Dark';
+  const btn = document.getElementById('themeToggle'); if(btn) btn.textContent = (theme==='dark') ? 'Light' : 'Dark';
 }
 (function initTheme(){
   const saved = localStorage.getItem(STORAGE_THEME);
@@ -212,21 +355,32 @@ function applyTheme(theme){
     applyTheme(prefersDark ? 'dark' : 'light');
   }
 })();
-document.getElementById('themeToggle').addEventListener('click', ()=>{
-  const cur = document.documentElement.hasAttribute('data-theme') ? 'dark' : 'light';
-  applyTheme(cur==='dark' ? 'light' : 'dark');
-});
+const themeToggleBtn = document.getElementById('themeToggle'); if(themeToggleBtn) themeToggleBtn.addEventListener('click', ()=>{ const cur = document.documentElement.hasAttribute('data-theme') ? 'dark' : 'light'; applyTheme(cur==='dark' ? 'light' : 'dark'); });
 
 /* -------------------------
    Toast helper
    ------------------------- */
 function showToast(txt){
-  const wrap = document.getElementById('toasts');
-  const el = document.createElement('div');
-  el.className = 'toast';
-  el.textContent = txt;
-  wrap.appendChild(el);
-  setTimeout(()=>{ el.style.animation = 'toastOut 300ms linear forwards'; setTimeout(()=>el.remove(),320); }, 4000);
+  try{
+    const wrap = document.getElementById('toasts');
+    const el = document.createElement('div');
+    el.className = 'toast';
+    el.textContent = txt;
+    wrap.appendChild(el);
+    setTimeout(()=>{ el.style.animation = 'toastOut 300ms linear forwards'; setTimeout(()=>el.remove(),320); }, 4000);
+  }catch(e){ console.warn('toast failed', e); }
+}
+
+/* -------------------------
+   Simple congrats popup
+   ------------------------- */
+function showCongrats(msg){
+  try{
+    const ex = document.getElementById('congratsBox'); if(ex) ex.remove();
+    const d = document.createElement('div'); d.id='congratsBox'; d.className='congrats'; d.innerHTML = `<div style="font-weight:800;margin-bottom:6px">🎉 Congratulations</div><div style="font-size:14px">${msg}</div>`;
+    document.body.appendChild(d);
+    setTimeout(()=>{ d.style.transition='opacity 300ms'; d.style.opacity='0'; setTimeout(()=>d.remove(),350); }, 4200);
+  }catch(e){ console.warn('congrats failed', e); }
 }
 
 /* -------------------------
@@ -259,7 +413,7 @@ function renderTaskList(){
     const t = TASKS[i];
     const latest = subs.filter(s=>s.userId===CURRENT_ID && s.taskIndex===i).sort((a,b)=>b.createdAt-a.createdAt)[0];
     const prev = subs.filter(s=>s.userId===CURRENT_ID && s.taskIndex===i-1).sort((a,b)=>b.createdAt-a.createdAt)[0];
-    const unlocked = i===0 || (USERS[CURRENT_ID].completedTasks.includes(i-1)) || (prev && (prev.status==='pending' || prev.status==='approved'));
+    const unlocked = i===0 || (USERS[CURRENT_ID] && USERS[CURRENT_ID].completedTasks && USERS[CURRENT_ID].completedTasks.includes(i-1)) || (prev && (prev.status==='pending' || prev.status==='approved'));
     const visible = !(latest && latest.status==='approved');
     if(!visible) continue;
     const statusLabel = latest ? latest.status : '';
@@ -278,6 +432,7 @@ function renderTaskList(){
     container.appendChild(card);
   }
   document.querySelectorAll('button[data-open]').forEach(b=>b.addEventListener('click', ()=>{ openUserTask(parseInt(b.getAttribute('data-open'))); }));
+  const preview = document.getElementById('taskPreview'); if(preview) preview.innerHTML = `Tasks: ${TASKS.length} • First: ${TASKS[0]?.title || ''}`;
 }
 
 /* -------------------------
@@ -287,18 +442,18 @@ let currentTaskIndex = null;
 function openUserTask(i){
   currentTaskIndex = i;
   const t = TASKS[i];
-  document.getElementById('screen-tasks').style.display='none';
-  document.getElementById('screen-flow').style.display='block';
-  document.getElementById('screen-home').style.display='none';
-  document.getElementById('screen-referral').style.display='none';
-  document.getElementById('screen-notifs').style.display='none';
-  document.getElementById('taskTitle').textContent = 'Task '+(i+1)+' — '+t.title;
+  const st = document.getElementById('screen-tasks'); if(st) st.style.display='none';
+  const sf = document.getElementById('screen-flow'); if(sf) sf.style.display='block';
+  const sh = document.getElementById('screen-home'); if(sh) sh.style.display='none';
+  const sr = document.getElementById('screen-referral'); if(sr) sr.style.display='none';
+  const sn = document.getElementById('screen-notifs'); if(sn) sn.style.display='none';
+  const tt = document.getElementById('taskTitle'); if(tt) tt.textContent = 'Task '+(i+1)+' — '+t.title;
   const flow = document.getElementById('taskFlow');
   const subs = loadSubs();
   const latest = subs.filter(s=>s.userId===CURRENT_ID && s.taskIndex===i).sort((a,b)=>b.createdAt-a.createdAt)[0];
   const prefill = latest? latest.accountId||'':'';
   const proofPreview = latest && latest.proof ? `<div class='muted-block'>Previous proof:</div><img src='${latest.proof}' class='thumb'/>` : '';
-  flow.innerHTML = `
+  if(flow) flow.innerHTML = `
     <div class='muted-block' style='margin-top:8px'>${t.note ? t.note : 'Follow instructions carefully.'}</div>
     <div class='muted-block' style='margin-top:8px'>Open this link:</div>
     <button class='btn' id='openTaskLink'>Open Task</button>
@@ -309,8 +464,8 @@ function openUserTask(i){
     ${proofPreview}
     <div style='margin-top:8px'><button class='btn' id='submitUserTask'>Submit</button></div>
   `;
-  document.getElementById('openTaskLink').addEventListener('click', ()=>{ window.open(t.link, '_blank'); });
-  document.getElementById('submitUserTask').addEventListener('click', submitUserTask);
+  const openBtn = document.getElementById('openTaskLink'); if(openBtn) openBtn.addEventListener('click', ()=>{ window.open(t.link, '_blank'); });
+  const submitBtn = document.getElementById('submitUserTask'); if(submitBtn) submitBtn.addEventListener('click', submitUserTask);
 }
 
 function submitUserTask(){
@@ -323,12 +478,14 @@ function submitUserTask(){
     const sub = { id:'sub_'+Math.random().toString(36).slice(2,9), userId:CURRENT_ID, taskIndex:currentTaskIndex, accountId:acc, proof:dataUrl||null, status:'pending', createdAt:Date.now(), assignedTo:null };
     subs.push(sub);
     saveSubs(subs);
+    cloudSaveSubmission(sub).then(()=>console.debug('submission saved to cloud', sub)).catch(()=>{});
     sendTelegramNotification(sub);
+    console.debug('submission saved', sub);
     showToast('Submitted for review');
     renderTaskList();
     renderTasksForUser();
     try{ refreshAdminPanels(); }catch(e){}
-    setTimeout(()=>{ document.getElementById('screen-flow').style.display='none'; document.getElementById('screen-tasks').style.display='block'; },600);
+    setTimeout(()=>{ const sf = document.getElementById('screen-flow'); if(sf) sf.style.display='none'; const st = document.getElementById('screen-tasks'); if(st) st.style.display='block'; },600);
   };
   if(fileEl && fileEl.files && fileEl.files[0]){ const fr = new FileReader(); fr.onload = function(e){ push(e.target.result); }; fr.readAsDataURL(fileEl.files[0]); } else { push(null); }
 }
@@ -336,12 +493,31 @@ function submitUserTask(){
 /* -------------------------
    Small UI helpers
    ------------------------- */
-function renderTasksForUser(){ document.getElementById('uidTop').textContent = USERS[CURRENT_ID].name || CURRENT_ID; renderWallet(); renderTaskList(); }
-function renderWallet(){ document.getElementById('uidUser').textContent = CURRENT_ID; document.getElementById('balance').textContent = (USERS[CURRENT_ID].balance||0).toFixed(2); document.getElementById('refBalance').textContent = (USERS[CURRENT_ID].refBalance||0).toFixed(2); document.getElementById('topBal').textContent = (USERS[CURRENT_ID].balance||0).toFixed(2); }
-function renderReferral(){ const link = location.origin + location.pathname + '?join=' + CURRENT_ID; document.getElementById('refLink').innerHTML = `<a href='${link}' target='_blank'>${link}</a>`; }
-function copyRef(){ navigator.clipboard.writeText(location.origin + location.pathname + '?join=' + CURRENT_ID).then(()=>showToast('Join link copied')); }
+function renderTasksForUser(){ const ut = document.getElementById('uidTop'); if(ut) ut.textContent = USERS[CURRENT_ID] && USERS[CURRENT_ID].name ? USERS[CURRENT_ID].name : CURRENT_ID; renderWallet(); renderTaskList(); }
+function renderWallet(){ const uidEl = document.getElementById('uidUser'); if(uidEl) uidEl.textContent = CURRENT_ID; const bal = (USERS[CURRENT_ID] && USERS[CURRENT_ID].balance) || 0; const refb = (USERS[CURRENT_ID] && USERS[CURRENT_ID].refBalance) || 0; const balEl = document.getElementById('balance'); const refEl = document.getElementById('refBalance'); const topEl = document.getElementById('topBal'); if(balEl) balEl.textContent = bal.toFixed(2); if(refEl) refEl.textContent = refb.toFixed(2); if(topEl) topEl.textContent = bal.toFixed(2); }
+function renderReferral() {
+  const u = USERS[CURRENT_ID] || {};
+  const link = location.origin + location.pathname + '?join=' + CURRENT_ID;
+  const list = (u.referrals || []).map(id => `<li>${id}</li>`).join('') || '<li>No referrals yet</li>';
+  const msg = u.lastReferralJoinMsg ? `<div class="card" style="background:#e8ffe8;margin-bottom:10px;">${u.lastReferralJoinMsg}</div>` : '';
+  const wrap = document.getElementById('screen-referral');
+  if(!wrap) return;
+  wrap.innerHTML = `
+    <h2>📤 Invite</h2>
+    <div>Your join link:</div>
+    <div id="refLinkInner" style="word-break:break-all;margin-top:8px"><a id="refPreviewLink" href="${link}" target="_blank">${link}</a></div>
+    <div style="display:flex;gap:8px;margin-top:8px"><button class="btn" id="copyRefBtnInner">Copy Join Link</button><button class="btn" id="openRefBtnInner">Open Join Link</button></div>
+    ${msg}
+    <div class="card" style="margin-top:12px">
+      <h3>Your Referrals</h3>
+      <ul>${list}</ul>
+    </div>`;
+  const copyBtn = document.getElementById('copyRefBtnInner'); if(copyBtn) copyBtn.addEventListener('click', ()=>{ safeCopy(link).then(()=>showToast('Join link copied')).catch(()=>showToast('Copy failed — please select the link and copy manually')); });
+  const openBtn = document.getElementById('openRefBtnInner'); if(openBtn) openBtn.addEventListener('click', ()=>{ window.open(link, '_blank'); });
+}
+function copyRef(){ const link = location.origin + location.pathname + '?join=' + CURRENT_ID; safeCopy(link).then(()=>showToast('Join link copied')).catch(()=>showToast('Copy failed — please select the link and copy manually')); }
 function openJoin(){ window.open(location.origin + location.pathname + '?join=' + CURRENT_ID, '_blank'); }
-function renderNotifications(){ const list = document.getElementById('notifList'); if(!list) return; const nots = (USERS[CURRENT_ID].notifications||[]).slice().reverse(); if(!nots.length){ list.innerHTML = '<div class="muted-block">No notifications</div>'; return; } list.innerHTML=''; nots.forEach(n=>{ const d = document.createElement('div'); d.className='card'; d.innerHTML = `<div><strong>${n.title}</strong><div class='small'>${new Date(n.createdAt).toLocaleString()}</div><div style='margin-top:8px'>${n.message}</div></div>`; list.appendChild(d); }); }
+function renderNotifications(){ const list = document.getElementById('notifList'); if(!list) return; const nots = (USERS[CURRENT_ID] && USERS[CURRENT_ID].notifications) ? USERS[CURRENT_ID].notifications.slice().reverse() : []; if(!nots.length){ list.innerHTML = '<div class="muted-block">No notifications</div>'; return; } list.innerHTML=''; nots.forEach(n=>{ const d = document.createElement('div'); d.className='card'; d.innerHTML = `<div><strong>${n.title}</strong><div class='small'>${new Date(n.createdAt).toLocaleString()}</div><div style='margin-top:8px'>${n.message}</div></div>`; list.appendChild(d); }); }
 
 /* -------------------------
    Admin panel rendering (different dashboard)
@@ -350,6 +526,7 @@ function openFullAdminPanel(){
   const role = (USERS[CURRENT_ID] && USERS[CURRENT_ID].role) || 'user';
   if(!(role==='admin' || role==='moderator' || role==='superadmin')){ showToast('No admin permission — please login'); return; }
   const panel = document.getElementById('fullAdminPanel');
+  if(!panel) return;
   panel.style.display='block';
   panel.innerHTML = `
     <div class="card admin-header"><h3>PaidTasking Admin Dashboard</h3></div>
@@ -368,90 +545,112 @@ function openFullAdminPanel(){
         <button class="btn" id="admManageTasks">Manage Tasks</button>
         <button class="btn" id="admManageUsers">Manage Users</button>
         <button class="btn" id="admSettingsBtnInner">Settings</button>
+        <button class="btn" id="debugDumpBtn">Debug Dump</button>
       </div>
     </div>
     <div id="admPanelContent" style="margin-top:12px"></div>
   `;
-  document.getElementById('admViewSubs').addEventListener('click', ()=>{ renderAdminSubmissions(true); });
-  document.getElementById('admModerView').addEventListener('click', ()=>{ renderModeratorPanel(); });
-  document.getElementById('admManageTasks').addEventListener('click', ()=>{ renderAdminTasks(); });
-  document.getElementById('admManageUsers').addEventListener('click', ()=>{ renderAdminUsers(); });
-  document.getElementById('admSettingsBtnInner').addEventListener('click', ()=>{ renderAdminSettings(); });
-  // auto-open submissions by default (Option A)
-  setTimeout(()=>{ document.getElementById('admViewSubs').click(); }, 80);
+  const v = document.getElementById('admViewSubs'); if(v) v.addEventListener('click', ()=>{ renderAdminSubmissions(true); });
+  const m = document.getElementById('admModerView'); if(m) m.addEventListener('click', ()=>{ renderModeratorPanel(); });
+  const tbtn = document.getElementById('admManageTasks'); if(tbtn) tbtn.addEventListener('click', ()=>{ renderAdminTasks(); });
+  const ubtn = document.getElementById('admManageUsers'); if(ubtn) ubtn.addEventListener('click', ()=>{ renderAdminUsers(); });
+  const sbtn = document.getElementById('admSettingsBtnInner'); if(sbtn) sbtn.addEventListener('click', ()=>{ renderAdminSettings(); });
+  const dbg = document.getElementById('debugDumpBtn'); if(dbg) dbg.addEventListener('click', ()=>{ debugDump(); showToast('Dumped to console'); });
+  setTimeout(()=>{ const auto = document.getElementById('admViewSubs'); if(auto) auto.click(); }, 80);
 }
 
 function renderAdminSubmissions(drawNow=false){
-  const el = document.getElementById('admPanelContent');
+  const el = document.getElementById('admPanelContent'); if(!el) return;
   function draw(){
     const subs = loadSubs().slice().reverse();
     let html = `<div class='card'><h4>Submissions</h4>` + (subs.length? '':'<div class="muted-block">No submissions</div>');
     subs.forEach(s=>{
-      html += `<div class='card'><strong>${s.userId} (${USERS[s.userId]?.name||''})</strong> - Task ${s.taskIndex+1}<div class='small'>${s.accountId||'-'}</div>${s.proof?`<img src='${s.proof}' class='thumb'/>`:''}<div class='small'>Status: ${s.status} ${s.assignedTo?(' | assigned: '+s.assignedTo):''}</div><div style='margin-top:8px'>${s.status!=='approved'?`<button class='btn' data-a='${s.id}'>Approve</button> <button class='btn' data-r='${s.id}'>Reject</button> <button class='btn' data-assign='${s.id}'>Assign</button>`:''}</div></div>`;
+      const uname = (USERS[s.userId] && USERS[s.userId].name) ? USERS[s.userId].name : '';
+      html += `<div class='card'><strong>${s.userId} ${uname?('('+uname+')'):''}</strong> - Task ${s.taskIndex+1}`;
+      html += `<div class='small'>${s.accountId||'-'}</div>`;
+      if(s.proof) html += `<img src='${s.proof}' class='thumb'/>`;
+      html += `<div class='small'>Status: ${s.status}</div>`;
+      html += `<div style='margin-top:8px'>${s.status!=='approved'?`<button class='btn' data-a='${s.id}'>Approve</button> <button class='btn' data-r='${s.id}'>Reject</button>`:''}</div>`;
+      html += `</div>`;
     });
     html += '</div>';
     el.innerHTML = html;
     el.querySelectorAll('button[data-a]').forEach(b=>b.addEventListener('click', ()=>{ adminApprove(b.getAttribute('data-a')); draw(); }));
     el.querySelectorAll('button[data-r]').forEach(b=>b.addEventListener('click', ()=>{ adminReject(b.getAttribute('data-r')); draw(); }));
-    el.querySelectorAll('button[data-assign]').forEach(b=>b.addEventListener('click', ()=>{ const id=b.getAttribute('data-assign'); const mod = prompt('Assign to moderator (user id)'); if(mod){ assignSubmissionTo(id, mod); draw(); } }));
   }
   if(drawNow) draw();
 }
 
 function renderModeratorPanel(){
-  const el = document.getElementById('admPanelContent');
-  const subs = loadSubs().filter(s=> s.status==='pending' && (!s.assignedTo || s.assignedTo===CURRENT_ID)).slice().reverse();
-  let html = `<div class='card'><h4>Moderator Review</h4>` + (subs.length? '':'<div class="muted-block">No submissions to review (for you)</div>');
+  const el = document.getElementById('admPanelContent'); if(!el) return;
+  const subs = loadSubs().slice().reverse();
+  let html = `<div class='card'><h4>Moderator Review (All Submissions)</h4>` + (subs.length? '':'<div class="muted-block">No submissions</div>');
   subs.forEach(s=>{
-    html += `<div class='card'><strong>${s.userId}</strong> - Task ${s.taskIndex+1}<div class='small'>${s.accountId||'-'}</div>${s.proof?`<img src='${s.proof}' class='thumb'/>`:''}<div class='small'>Status: ${s.status}</div><div style='margin-top:8px'><button class='btn' data-ma='${s.id}'>Approve</button> <button class='btn' data-mr='${s.id}'>Reject</button></div></div>`;
+    html += `<div class='card'><strong>${s.userId}</strong> - Task ${s.taskIndex+1}`;
+    html += `<div class='small'>${s.accountId||'-'}</div>`;
+    if(s.proof) html += `<img src='${s.proof}' class='thumb'/>`;
+    html += `<div class='small'>Status: ${s.status}</div>`;
+    html += `<div style='margin-top:8px'><button class='btn' data-ma='${s.id}'>Approve</button> <button class='btn' data-mr='${s.id}'>Reject</button></div>`;
+    html += `</div>`;
   });
   html += '</div>';
   el.innerHTML = html;
-  el.querySelectorAll('button[data-ma]').forEach(b=>b.addEventListener('click', ()=>{ adminApprove(b.getAttribute('data-ma')); renderModeratorPanel(); renderAdminSubmissions(); }));
-  el.querySelectorAll('button[data-mr]').forEach(b=>b.addEventListener('click', ()=>{ adminReject(b.getAttribute('data-mr')); renderModeratorPanel(); renderAdminSubmissions(); }));
+  el.querySelectorAll('button[data-ma]').forEach(b=>b.addEventListener('click', ()=>{
+    adminApprove(b.getAttribute('data-ma'));
+    renderModeratorPanel();
+    renderAdminSubmissions();
+  }));
+  el.querySelectorAll('button[data-mr]').forEach(b=>b.addEventListener('click', ()=>{
+    adminReject(b.getAttribute('data-mr'));
+    renderModeratorPanel();
+    renderAdminSubmissions();
+  }));
 }
 
 function renderAdminTasks(){
-  const el = document.getElementById('admPanelContent');
+  const el = document.getElementById('admPanelContent'); if(!el) return;
   let html = `<div class='card'><h4>Tasks</h4></div>`;
   TASKS.forEach((t,i)=>{ html += `<div class='card'><strong>${t.title}</strong> <div class='small'>$${t.reward||0} — ${t.link||''}</div><div style='margin-top:8px'><button class='btn' data-del='${i}'>Delete</button></div></div>`; });
   html += `<div class='card'><h4>Add Task</h4><input id='newTaskTitle' placeholder='Title'/><input id='newTaskReward' type='number' placeholder='Reward' value="1"/><input id='newTaskLink' placeholder='Link'/><div style='margin-top:8px'><button class='btn' id='addTaskBtn'>Add Task</button></div></div>`;
   el.innerHTML = html;
   el.querySelectorAll('button[data-del]').forEach(b=>b.addEventListener('click', ()=>{ TASKS.splice(parseInt(b.getAttribute('data-del')),1); saveJSON(STORAGE_TASKS, TASKS); showToast('Task removed'); renderAdminTasks(); }));
-  const addBtn = document.getElementById('addTaskBtn'); if(addBtn) addBtn.addEventListener('click', ()=>{ const title = document.getElementById('newTaskTitle').value.trim(); const reward = parseFloat(document.getElementById('newTaskReward').value) || 0; const link = document.getElementById('newTaskLink').value.trim(); if(!title || !link || !reward){ showToast('Fill all fields'); return; } TASKS.push({ title, reward, link }); saveJSON(STORAGE_TASKS, TASKS); showToast('Task added'); renderAdminTasks(); });
+  const addBtn = document.getElementById('addTaskBtn'); if(addBtn) addBtn.addEventListener('click', ()=>{ const title = document.getElementById('newTaskTitle').value.trim(); const reward = parseFloat(document.getElementById('newTaskReward').value) || 0; const link = document.getElementById('newTaskLink').value.trim(); if(!title || !link || !reward){ showToast('Fill all fields'); return; } const newT = { title, reward, link }; TASKS.push(newT); saveJSON(STORAGE_TASKS, TASKS); cloudSaveTask(newT).then(()=>console.debug('task saved cloud')).catch(()=>{}); showToast('Task added'); renderAdminTasks(); });
 }
 
 function renderAdminUsers(){
-  const el = document.getElementById('admPanelContent');
+  const el = document.getElementById('admPanelContent'); if(!el) return;
   let html = `<div class='card'><h4>Users & Roles</h4></div>`;
   Object.keys(USERS).forEach(uid=>{ const u = USERS[uid]; html += `<div class='card'><strong>${u.name || uid}</strong><div class='small'>ID: ${uid}</div><div class='small'>role: ${u.role||'user'}</div><div style='margin-top:8px'><select data-role='${uid}'><option value='user' ${u.role==='user'?'selected':''}>User</option><option value='moderator' ${u.role==='moderator'?'selected':''}>Moderator</option><option value='admin' ${u.role==='admin'?'selected':''}>Admin</option><option value='superadmin' ${u.role==='superadmin'?'selected':''}>SuperAdmin</option></select></div></div>`; });
   el.innerHTML = html;
-  el.querySelectorAll('select[data-role]').forEach(s=>s.addEventListener('change', ()=>{ const uid = s.getAttribute('data-role'); USERS[uid].role = s.value; saveUsers(); showToast('Role updated'); renderAdminUsers(); }));
+  el.querySelectorAll('select[data-role]').forEach(s=>s.addEventListener('change', ()=>{ const uid = s.getAttribute('data-role'); USERS[uid].role = s.value; saveUsers(); cloudSaveUser(USERS[uid]).catch(()=>{}); showToast('Role updated'); renderAdminUsers(); }));
 }
 
 function renderAdminSettings(){
-  const el = document.getElementById('admPanelContent');
+  const el = document.getElementById('admPanelContent'); if(!el) return;
   const saved = localStorage.getItem(STORAGE_TELEWEB)||'';
   el.innerHTML = `<div class='card'><h4>Settings</h4><div class='small muted-block'>Telegram webhook (POST JSON):</div><input id='teleWebhook' placeholder='https://...' value='${saved}'/><div style='margin-top:8px'><button class='btn' id='saveWeb'>Save</button> <button class='btn' id='clearWeb'>Clear</button></div></div>
   <div class='card'><h4>Backup & Restore</h4><button class='btn' id='exportBackupBtn'>Export Backup</button><div style='margin-top:8px;display:flex;gap:8px;align-items:center'><input type='file' id='importBackupInput' style='flex:1' /><button class='btn' id='importBackupBtn'>Import</button></div></div>`;
-  document.getElementById('saveWeb').addEventListener('click', ()=>{ const v = document.getElementById('teleWebhook').value.trim(); localStorage.setItem(STORAGE_TELEWEB, v); showToast('Saved'); });
-  document.getElementById('clearWeb').addEventListener('click', ()=>{ localStorage.removeItem(STORAGE_TELEWEB); document.getElementById('teleWebhook').value=''; showToast('Cleared'); });
-  document.getElementById('exportBackupBtn').addEventListener('click', exportBackup);
-  document.getElementById('importBackupBtn').addEventListener('click', ()=>{ const inp = document.getElementById('importBackupInput'); if(inp.files.length) importBackupFile(inp.files[0]); else showToast('Choose a file first'); });
+  const sbtn = document.getElementById('saveWeb'); if(sbtn) sbtn.addEventListener('click', ()=>{ const v = document.getElementById('teleWebhook').value.trim(); localStorage.setItem(STORAGE_TELEWEB, v); showToast('Saved'); });
+  const cbtn = document.getElementById('clearWeb'); if(cbtn) cbtn.addEventListener('click', ()=>{ localStorage.removeItem(STORAGE_TELEWEB); const t = document.getElementById('teleWebhook'); if(t) t.value=''; showToast('Cleared'); });
+  const ebtn = document.getElementById('exportBackupBtn'); if(ebtn) ebtn.addEventListener('click', exportBackup);
+  const ibtn = document.getElementById('importBackupBtn'); if(ibtn) ibtn.addEventListener('click', ()=>{ const inp = document.getElementById('importBackupInput'); if(inp && inp.files && inp.files.length) importBackupFile(inp.files[0]); else showToast('Choose a file first'); });
 }
 
-/* -------------------------
-   Admin actions (approve/reject/assign)
+/* ------------------------- 
+   Admin actions (approve/reject)
    ------------------------- */
 function canReview(){ const role = (USERS[CURRENT_ID] && USERS[CURRENT_ID].role) || 'user'; return (role==='moderator' || role==='admin' || role==='superadmin'); }
-function adminApprove(id){ if(!canReview()) return showToast('No permission'); const subs = loadSubs(); const s = subs.find(x=>x.id===id); if(!s) return; s.status = 'approved'; USERS[s.userId] = USERS[s.userId] || { id:s.userId, name:'User', role:'user', balance:0, refBalance:0, completedTasks:[], referrals:[], referrer:null, notifications:[] }; const u = USERS[s.userId]; if(!u.completedTasks.includes(s.taskIndex)) u.completedTasks.push(s.taskIndex); const reward = (TASKS[s.taskIndex] && TASKS[s.taskIndex].reward) ? TASKS[s.taskIndex].reward : 0; u.balance = (u.balance||0) + reward; u.notifications = u.notifications||[]; u.notifications.push({ id:'n_'+Date.now(), title:'Approved', message:'Task '+(s.taskIndex+1)+' approved. Reward added.', createdAt:Date.now(), read:false }); saveSubs(subs); saveUsers(); try{ distributeReferralRewards(s.userId, reward); }catch(e){ console.warn('Referral distribution failed', e); } showToast('Approved'); refreshAdminPanels(); }
-function adminReject(id){ if(!canReview()) return showToast('No permission'); const subs = loadSubs(); const s = subs.find(x=>x.id===id); if(!s) return; s.status = 'rejected'; USERS[s.userId] = USERS[s.userId] || { id:s.userId, name:'User', role:'user', balance:0, refBalance:0, completedTasks:[], referrals:[], referrer:null, notifications:[] }; USERS[s.userId].notifications = USERS[s.userId].notifications||[]; USERS[s.userId].notifications.push({ id:'n_'+Date.now(), title:'Rejected', message:'Your submission was rejected.', createdAt:Date.now(), read:false }); saveSubs(subs); saveUsers(); showToast('Rejected'); refreshAdminPanels(); }
-function assignSubmissionTo(subId, moderatorId){ const subs = loadSubs(); const s = subs.find(x=>x.id===subId); if(!s) return; s.assignedTo = moderatorId; saveSubs(subs); showToast('Assigned'); if(USERS[moderatorId]){ USERS[moderatorId].notifications = USERS[moderatorId].notifications||[]; USERS[moderatorId].notifications.push({ id:'n_'+Date.now(), title:'Assigned review', message:'You were assigned submission '+subId, createdAt:Date.now(), read:false }); saveUsers(); } }
+function adminApprove(id){ if(!canReview()) return showToast('No permission'); const subs = loadSubs(); const s = subs.find(x=>x.id===id); if(!s) return; s.status = 'approved'; USERS[s.userId] = USERS[s.userId] || { id:s.userId, name:'User', role:'user', balance:0, refBalance:0, completedTasks:[], referrals:[], referrer:null, notifications:[] }; const u = USERS[s.userId]; if(!u.completedTasks.includes(s.taskIndex)) u.completedTasks.push(s.taskIndex); const reward = (TASKS[s.taskIndex] && TASKS[s.taskIndex].reward) ? TASKS[s.taskIndex].reward : 0; u.balance = (u.balance||0) + reward; u.notifications = u.notifications||[]; u.notifications.push({ id:'n_'+Date.now(), title:'Approved', message:'Task '+(s.taskIndex+1)+' approved. Reward added.', createdAt:Date.now(), read:false }); saveSubs(subs); saveUsers(); try{ distributeReferralRewards(s.userId, reward); }catch(e){ console.warn('Referral distribution failed', e); } cloudUpdateSubmission(id, { status: 'approved' }).catch(()=>{}); console.debug('admin approved', s); showToast('Approved'); refreshAdminPanels(); }
+function adminReject(id){ if(!canReview()) return showToast('No permission'); const subs = loadSubs(); const s = subs.find(x=>x.id===id); if(!s) return; s.status = 'rejected'; USERS[s.userId] = USERS[s.userId] || { id:s.userId, name:'User', role:'user', balance:0, refBalance:0, completedTasks:[], referrals:[], referrer:null, notifications:[] }; USERS[s.userId].notifications = USERS[s.userId].notifications||[]; USERS[s.userId].notifications.push({ id:'n_'+Date.now(), title:'Rejected', message:'Your submission was rejected.', createdAt:Date.now(), read:false }); saveSubs(subs); saveUsers(); cloudUpdateSubmission(id, { status: 'rejected' }).catch(()=>{}); console.debug('admin rejected', s); showToast('Rejected'); refreshAdminPanels(); }
 
 /* -------------------------
    Referral handling
    ------------------------- */
-function handleJoinParam(){ try{ const params = new URLSearchParams(location.search); const join = params.get('join'); if(!join) return; if(join === CURRENT_ID) return; if(!USERS[CURRENT_ID]) USERS[CURRENT_ID] = { id:CURRENT_ID, name:'User', role:'user', balance:0, refBalance:0, completedTasks:[], referrals:[], referrer:null, notifications:[] }; if(!USERS[CURRENT_ID].referrer){ if(!USERS[join]) USERS[join] = { id:join, name:'User', role:'user', balance:0, refBalance:0, completedTasks:[], referrals:[], referrer:null, notifications:[] }; USERS[CURRENT_ID].referrer = join; USERS[join].referrals = USERS[join].referrals || []; if(!USERS[join].referrals.includes(CURRENT_ID)) USERS[join].referrals.push(CURRENT_ID); saveUsers(); showToast('Joined via referral'); } }catch(e){ console.warn('join param failed', e); } }
+function handleJoinParam(){ try{ const params = new URLSearchParams(location.search); const join = params.get('join'); if(!join) return; if(join === CURRENT_ID) return; if(!USERS[CURRENT_ID]) USERS[CURRENT_ID] = { id:CURRENT_ID, name:'User', role:'user', balance:0, refBalance:0, completedTasks:[], referrals:[], referrer:null, notifications:[] }; if(!USERS[CURRENT_ID].referrer){ if(!USERS[join]) USERS[join] = { id:join, name:'User', role:'user', balance:0, refBalance:0, completedTasks:[], referrals:[], referrer:null, notifications:[] }; USERS[CURRENT_ID].referrer = join; USERS[join].referrals = USERS[join].referrals || []; if(!USERS[join].referrals.includes(CURRENT_ID)) USERS[join].referrals.push(CURRENT_ID); USERS[join].lastReferralJoinMsg = `New user ${CURRENT_ID} joined via your link — you earned a referral bonus!`;
+  USERS[join].refBalance = (USERS[join].refBalance||0) + 5; // immediate $5 reward on join
+  USERS[join].notifications = USERS[join].notifications||[]; USERS[join].notifications.push({ id:'n_'+Date.now(), title:'Referral', message:`${CURRENT_ID} joined via your link. $5 added.`, createdAt:Date.now(), read:false });
+  saveUsers(); cloudSaveUser(USERS[join]).catch(()=>{}); showCongrats(`Thanks! You referred a new user and earned $5 — ${CURRENT_ID}`); }
+}catch(e){ console.warn('join param failed', e); } }
 
 function distributeReferralRewards(userId, amount){
   try{
@@ -464,6 +663,7 @@ function distributeReferralRewards(userId, amount){
       USERS[ref].notifications = USERS[ref].notifications||[];
       USERS[ref].notifications.push({ id:'n_'+Date.now()+'_'+i, title:'Referral bonus', message:'You earned $'+bonus+' from referral level '+(i+1), createdAt: Date.now(), read:false });
       saveUsers();
+      cloudSaveUser(USERS[ref]).catch(()=>{});
       ref = USERS[ref].referrer;
     }
   }catch(e){ console.warn('distribute error', e); }
@@ -474,7 +674,7 @@ function distributeReferralRewards(userId, amount){
    ------------------------- */
 function expiryCheck(){
   const subs = loadSubs(); let changed=false; const now=Date.now();
-  subs.forEach(s=>{ if(s.status==='pending' && s.createdAt + 5*60*1000 < now){ s.status='expired'; USERS[s.userId] = USERS[s.userId]||{ id:s.userId, name:'User', role:'user', balance:0, refBalance:0, completedTasks:[], referrals:[], referrer:null, notifications:[] }; USERS[s.userId].notifications = USERS[s.userId].notifications||[]; USERS[s.userId].notifications.push({ id:'n_'+Date.now(), title:'Expired', message:'Submission expired. Please redo.', createdAt:Date.now(), read:false }); changed=true; } });
+  subs.forEach(s=>{ try{ if(s.status==='pending' && s.createdAt + 5*60*1000 < now){ s.status='expired'; USERS[s.userId] = USERS[s.userId]||{ id:s.userId, name:'User', role:'user', balance:0, refBalance:0, completedTasks:[], referrals:[], referrer:null, notifications:[] }; USERS[s.userId].notifications = USERS[s.userId].notifications||[]; USERS[s.userId].notifications.push({ id:'n_'+Date.now(), title:'Expired', message:'Submission expired. Please redo.', createdAt:Date.now(), read:false }); changed=true; } }catch(e){ console.warn('expiry check item failed', e); } });
   if(changed){ saveSubs(subs); saveUsers(); }
 }
 setInterval(expiryCheck, 30000);
@@ -495,7 +695,7 @@ function importBackupFile(file){
   const reader = new FileReader();
   reader.onload = function(e){
     let data;
-    try{ data = JSON.parse(e.target.result); }catch(err){ alert('Invalid file'); return; }
+    try{ data = JSON.parse(e.target.result);}catch(err){ alert('Invalid file'); return; }
     showBackupPreview(data);
   };
   reader.readAsText(file);
@@ -503,7 +703,8 @@ function importBackupFile(file){
 
 function showBackupPreview(data){
   const existing = document.getElementById('backupPreviewModal'); if(existing) existing.remove();
-  const modal = document.createElement('div'); modal.id='backupPreviewModal'; modal.innerHTML = `<div class="box"><h3>Backup Preview</h3><pre style="white-space:pre-wrap; max-height:60vh; overflow:auto;">${JSON.stringify(data, null, 2)}</pre><div style="margin-top:12px; text-align:right;"><button class="btn" id="confirmImport">Import</button> <button class="btn" id="cancelImport">Cancel</button></div></div>`;
+  const modal = document.createElement('div'); modal.id='backupPreviewModal'; modal.innerHTML = `<div class="box"><h3>Backup Preview</h3><pre style="white-space:pre-wrap; max-height:60vh; overflow:auto;">${JSON.stringify(data, null, 2)}</pre><div style="margin-top:12px; text-align:right;">` +
+    `<button class="btn" id="confirmImport">Import</button> <button class="btn" id="cancelImport">Cancel</button></div></div>`;
   document.body.appendChild(modal);
   document.getElementById('cancelImport').addEventListener('click', ()=>modal.remove());
   document.getElementById('confirmImport').addEventListener('click', ()=>{ for(const k in data) localStorage.setItem(k, data[k]); modal.remove(); showToast('Backup restored — reloading'); setTimeout(()=>location.reload(),700); });
@@ -512,30 +713,26 @@ function showBackupPreview(data){
 /* -------------------------
    Misc helpers
    ------------------------- */
-function loadSubs(){ return loadJSON(STORAGE_SUBS, []); }
-function saveAll(){ saveJSON(STORAGE_USERS, USERS); saveJSON(STORAGE_TASKS, TASKS); saveJSON(STORAGE_SUBS, loadSubs()); }
-function saveUsers(){ saveJSON(STORAGE_USERS, USERS); }
-function refreshAdminPanels(){ try{ const panel = document.getElementById('admPanelContent'); if(panel){ // just re-open submissions
-    document.querySelectorAll('#fullAdminPanel button').forEach(b=>{ if(b.textContent && b.textContent.toLowerCase().includes('sub')) b.click(); });
-  }}catch(e){} }
+function refreshAdminPanels(){ try{ const panel = document.getElementById('admPanelContent'); if(panel){ document.querySelectorAll('#fullAdminPanel button').forEach(b=>{ if(b.textContent && b.textContent.toLowerCase().includes('sub')) b.click(); }); }}catch(e){ console.warn(e); }}
 
 /* -------------------------
    Admin login codes (simple)
    ------------------------- */
 const ROLE_CODES = { superadmin:'SUPER999', admin:'ADMIN777', moderator:'MOD555' };
-document.getElementById('adminLoginBtn').addEventListener('click', attemptAdminLogin);
-function attemptAdminLogin(){ const p = (document.getElementById('adminPass')||{}).value.trim(); let assigned=null; Object.keys(ROLE_CODES).forEach(r=>{ if(p===ROLE_CODES[r]) assigned=r; }); if(!assigned){ showToast('Wrong password'); return; } USERS[CURRENT_ID].role = assigned; saveUsers(); showToast('Logged in as '+assigned); document.getElementById('adminLogin').style.display='none'; document.getElementById('adminApp').style.display='block'; openFullAdminPanel(); }
+const adminLoginBtn = document.getElementById('adminLoginBtn'); if(adminLoginBtn) adminLoginBtn.addEventListener('click', attemptAdminLogin);
+function attemptAdminLogin(){ const p = (document.getElementById('adminPass')||{}).value.trim(); let assigned=null; Object.keys(ROLE_CODES).forEach(r=>{ if(p===ROLE_CODES[r]) assigned=r; }); if(!assigned){ showToast('Wrong password'); return; } USERS[CURRENT_ID].role = assigned; saveUsers(); cloudSaveUser(USERS[CURRENT_ID]).catch(()=>{}); showToast('Logged in as '+assigned); const adminLogin = document.getElementById('adminLogin'); if(adminLogin) adminLogin.style.display='none'; const adminApp = document.getElementById('adminApp'); if(adminApp) adminApp.style.display='block'; openFullAdminPanel(); }
 
 /* -------------------------
    Profile editing (change display name)
    ------------------------- */
 function openProfile(){
-  document.getElementById('screen-tasks').style.display='none';
-  document.getElementById('screen-flow').style.display='none';
-  document.getElementById('screen-home').style.display='block';
-  document.getElementById('screen-referral').style.display='none';
-  document.getElementById('screen-notifs').style.display='none';
-  document.getElementById('screen-home').innerHTML = `<div class="card"><h3>Profile</h3>
+  const st = document.getElementById('screen-tasks'); if(st) st.style.display='none';
+  const sf = document.getElementById('screen-flow'); if(sf) sf.style.display='none';
+  const sh = document.getElementById('screen-home'); if(sh) sh.style.display='block';
+  const sr = document.getElementById('screen-referral'); if(sr) sr.style.display='none';
+  const sn = document.getElementById('screen-notifs'); if(sn) sn.style.display='none';
+  const home = document.getElementById('screen-home');
+  if(home) home.innerHTML = `<div class="card"><h3>Profile</h3>
     <label>Name</label>
     <input id="editName" value="${USERS[CURRENT_ID].name || 'User'}" />
     <div style="margin-top:8px"><button class="btn" onclick="saveName()">Save</button></div>
@@ -543,19 +740,19 @@ function openProfile(){
     <div>Role: ${USERS[CURRENT_ID].role}</div>
   </div>`;
 }
-function saveName(){ const v = document.getElementById('editName').value.trim(); if(!v) return showToast('Enter a name'); USERS[CURRENT_ID].name = v; saveUsers(); showToast('Name updated'); renderTasksForUser(); openProfile(); }
+function saveName(){ const v = document.getElementById('editName').value.trim(); if(!v) return showToast('Enter a name'); USERS[CURRENT_ID].name = v; saveUsers(); cloudSaveUser(USERS[CURRENT_ID]).catch(()=>{}); showToast('Name updated'); renderTasksForUser(); openProfile(); }
 
 /* -------------------------
    Init wiring & initial render
    ------------------------- */
-document.getElementById('backUserFlow').addEventListener('click', ()=>{ document.getElementById('screen-flow').style.display='none'; document.getElementById('screen-tasks').style.display='block'; });
-document.getElementById('openAdminBtn').addEventListener('click', ()=>openFullAdminPanel());
-document.getElementById('logoutAdminBtn').addEventListener('click', ()=>{ document.getElementById('adminApp').style.display='none'; document.getElementById('fullAdminPanel').style.display='none'; });
-document.getElementById('fabAdmin').addEventListener('click', ()=>{ document.getElementById('adminLogin').style.display='block'; document.getElementById('adminApp').style.display='none'; });
-document.getElementById('navTasks').addEventListener('click', ()=>{ document.getElementById('screen-tasks').style.display='block'; document.getElementById('screen-home').style.display='none'; document.getElementById('screen-referral').style.display='none'; document.getElementById('screen-notifs').style.display='none'; renderTaskList(); });
-document.getElementById('navWallet').addEventListener('click', ()=>openProfile());
-document.getElementById('navReferralBtn').addEventListener('click', ()=>{ document.getElementById('screen-referral').style.display='block'; document.getElementById('screen-tasks').style.display='none'; renderReferral(); });
-document.getElementById('navNotifs').addEventListener('click', ()=>{ document.getElementById('screen-notifs').style.display='block'; document.getElementById('screen-tasks').style.display='none'; renderNotifications(); });
+const backUserFlow = document.getElementById('backUserFlow'); if(backUserFlow) backUserFlow.addEventListener('click', ()=>{ const sf = document.getElementById('screen-flow'); if(sf) sf.style.display='none'; const st = document.getElementById('screen-tasks'); if(st) st.style.display='block'; });
+const openAdminBtn = document.getElementById('openAdminBtn'); if(openAdminBtn) openAdminBtn.addEventListener('click', ()=>openFullAdminPanel());
+const logoutAdminBtn = document.getElementById('logoutAdminBtn'); if(logoutAdminBtn) logoutAdminBtn.addEventListener('click', ()=>{ const adminApp = document.getElementById('adminApp'); if(adminApp) adminApp.style.display='none'; const full = document.getElementById('fullAdminPanel'); if(full) full.style.display='none'; });
+const fabAdmin = document.getElementById('fabAdmin'); if(fabAdmin) fabAdmin.addEventListener('click', ()=>{ const adminLogin = document.getElementById('adminLogin'); if(adminLogin) adminLogin.style.display='block'; const adminApp = document.getElementById('adminApp'); if(adminApp) adminApp.style.display='none'; });
+const navTasks = document.getElementById('navTasks'); if(navTasks) navTasks.addEventListener('click', ()=>{ const st = document.getElementById('screen-tasks'); if(st) st.style.display='block'; const sh = document.getElementById('screen-home'); if(sh) sh.style.display='none'; const sr = document.getElementById('screen-referral'); if(sr) sr.style.display='none'; const sn = document.getElementById('screen-notifs'); if(sn) sn.style.display='none'; renderTaskList(); });
+const navWallet = document.getElementById('navWallet'); if(navWallet) navWallet.addEventListener('click', ()=>openProfile());
+const navReferralBtn = document.getElementById('navReferralBtn'); if(navReferralBtn) navReferralBtn.addEventListener('click', ()=>{ const sr = document.getElementById('screen-referral'); if(sr) sr.style.display='block'; const st = document.getElementById('screen-tasks'); if(st) st.style.display='none'; renderReferral(); });
+const navNotifs = document.getElementById('navNotifs'); if(navNotifs) navNotifs.addEventListener('click', ()=>{ const sn = document.getElementById('screen-notifs'); if(sn) sn.style.display='block'; const st = document.getElementById('screen-tasks'); if(st) st.style.display='none'; renderNotifications(); });
 
 function init(){
   handleJoinParam();
@@ -564,6 +761,7 @@ function init(){
   renderWallet();
   renderReferral();
   renderNotifications();
+  try{ cloudLoadAll(); cloudRealtimeListeners(); }catch(e){ console.warn('cloud init failed', e); }
   setInterval(()=>{ showTaskPopup(); }, 15000);
 }
 init();
@@ -573,13 +771,19 @@ init();
    ------------------------- */
 let popupIndex = 0;
 function showTaskPopup(){
-  const p = document.getElementById('taskPopup'); if(!p) return; if(!Array.isArray(TASKS) || TASKS.length===0) return; const t = TASKS[popupIndex % TASKS.length]; p.innerHTML = `<strong>${t.title}</strong><br>$${t.reward||0} reward<br><div style="margin-top:8px"><button class="btn" onclick="openUserTask(${popupIndex % TASKS.length})">Open Task</button></div>`; p.style.display='block'; setTimeout(()=>p.style.display='none',10000); popupIndex++;
-}
+  const p = document.getElementById('taskPopup'); if(!p) return; if(!Array.isArray(TASKS) || TASKS.length===0) return; const t = TASKS[popupIndex % TASKS.length]; p.innerHTML = `<strong>${t.title}</strong><br>$${t.reward||0} reward<br><div style="margin-top:8px"><button class="btn" onclick="openUserTask(${popupIndex % TASKS.length})">Open Task</button></div>`; p.style.display='block'; setTimeout(()=>p.style.display='none',10000); popupIndex++; }
 
 /* -------------------------
    Export CSV helper (in admin analytics)
    ------------------------- */
 // function implemented in admin analytics rendering
+
+// small debug dump to console
+function debugDump(){ console.log('USERS', USERS); console.log('SUBMISSIONS', loadSubs()); console.log('TASKS', TASKS); }
+
+// global error handlers to prevent uncaught snapshot errors from bubbling
+window.addEventListener('error', (ev)=>{ try{ console.warn('Global error', ev.error || ev.message); showToast('Error: '+(ev.message||'See console')); }catch(e){} });
+window.addEventListener('unhandledrejection', (ev)=>{ try{ console.warn('Unhandled rejection', ev.reason); showToast('Async error — check console'); }catch(e){} });
 
 </script>
 </body>
